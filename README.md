@@ -45,12 +45,17 @@ stored on-device — every action (complete a promise, confirm an extraction, ad
 ## Build order (from the plan) and status
 
 1. ✅ Product UX prototype — every designed screen, light/dark, phone + tablet, on a local store
-2. 🟡 Database + authentication + tenant isolation — in progress (`supabase/`)
-3. ✅ Customer/contact timeline (UI on the local store)
-4. 🟡 Event ingestion model — in progress
-5. 🟡 AI extraction service — the app uses an on-device stand-in (`src/lib/ai.ts`) until the edge function is connected
-6. ✅ Promise Radar (UI + rules) · 7. ✅ Follow-up inbox · 8. 🟡 Search/copilot (local engine)
-9. ⬜ WhatsApp integration · 10. ⬜ Push notifications · 11. ⬜ Security/audit hardening · 12. ⬜ Beta with 5–10 businesses
+2. ✅ Database + authentication + tenant isolation — schema, RLS on every table, audit log, onboarding RPC
+   (`supabase/migrations`, applied and behaviour-tested against Postgres 16; not yet deployed to a Supabase project)
+3. ✅ Customer/contact timeline
+4. ✅ Event ingestion model — immutable `conversation_events`, idempotent `webhook_events`
+5. 🟡 AI extraction service — `ai-extract` edge function written (Claude, structured output, pending-until-confirmed);
+   the app still uses the on-device stand-in (`src/lib/ai.ts`) until auth + `src/data/remote.ts` are wired in
+6. ✅ Promise Radar · 7. ✅ Follow-up inbox (+ `followup-scheduler` function) · 8. 🟡 Search/copilot (`copilot` function written)
+9. 🟡 WhatsApp integration — signed, idempotent webhook written; needs a Meta app + number to go live
+10. ⬜ Push notifications · 11. ⬜ Security/audit hardening · 12. ⬜ Beta with 5–10 businesses
+
+**Next phase:** auth screens, switch the store to Supabase when configured, Realtime, trigger `ai-extract` on new events.
 
 ## Principles the code enforces
 

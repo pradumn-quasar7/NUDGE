@@ -1,0 +1,64 @@
+# Supabase CLI configuration for local development.
+# Full reference: https://supabase.com/docs/guides/local-development/cli/config
+project_id = "nudge"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+# Expo web dev server; native deep links use the app scheme from app.json.
+site_url = "http://localhost:8081"
+additional_redirect_urls = ["nudge://", "http://localhost:8081"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+# Local only. Production MUST confirm emails: invited memberships are linked to
+# accounts by confirmed email address (see 20261007000003_onboarding.sql).
+enable_confirmations = false
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
+
+# Meta calls this without a Supabase JWT; the X-Hub-Signature-256 HMAC authenticates it.
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+# Internal: called by other functions / pg_cron with the service-role key, checked in code.
+[functions.ai-extract]
+verify_jwt = false
+
+[functions.followup-scheduler]
+verify_jwt = false
+
+# Called by the app with the user's JWT (verified by the gateway and again in code).
+[functions.copilot]
+verify_jwt = true
