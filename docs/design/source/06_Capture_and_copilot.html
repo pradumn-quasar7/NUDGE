@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Nudge — Capture and copilot</title>
+<script src="cc9f87bc-94c7-4cc3-bfe0-111ee4b0d76b"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style></style>
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#3E3AC8}a:hover{color:#2B28A0}
+.k{--bg:#F5F4F0;--bg2:#ECEBE6;--card:#FFFFFF;--glass:rgba(255,255,255,.68);--glass-b:rgba(255,255,255,.85);--line:rgba(20,20,28,.07);--line2:rgba(20,20,28,.12);--t1:#121217;--t2:#52525C;--t3:#696973;--acc:#4B47E0;--on-acc:#FFFFFF;--acc-t:#3E3AC8;--acc-s:rgba(75,71,224,.07);--acc-s2:rgba(75,71,224,.14);--ok:#2C7A50;--ok-d:#3AA36B;--ok-s:rgba(58,163,107,.12);--warn:#94570B;--warn-d:#E09B32;--warn-s:rgba(224,155,50,.14);--bad:#B03A30;--bad-d:#D5554A;--bad-s:rgba(213,85,74,.10);--inv:#121217;--on-inv:#FFFFFF;--sh1:0 1px 2px rgba(20,20,28,.04);--sh2:0 12px 32px -14px rgba(20,20,28,.18),0 0 0 1px rgba(20,20,28,.04);--sh3:0 30px 70px -20px rgba(20,20,28,.3),0 6px 16px rgba(20,20,28,.06);--scrim:rgba(20,20,28,.22);--fade:rgba(245,244,240,0);font-family:'Geist',-apple-system,'SF Pro Text','Roboto',system-ui,sans-serif;color:var(--t1);-webkit-font-smoothing:antialiased}
+.board{padding:72px 80px;background:#E9E8E3;display:flex;flex-direction:column;gap:44px}
+.be{font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:var(--t3)}
+.bt{margin:0;font-size:44px;line-height:50px;font-weight:600;letter-spacing:-.035em}
+.bd{margin:0;font-size:17px;line-height:26px;color:var(--t2);max-width:900px}
+.phones{display:flex;gap:64px;align-items:flex-start}
+.shot{display:flex;flex-direction:column;gap:22px;flex:none}
+.sl{display:flex;gap:10px;align-items:baseline;font-size:15px;font-weight:550;padding-left:6px}
+.sn{font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;font-weight:400;color:var(--t3)}
+.phone{position:relative;width:390px;height:844px;border-radius:54px;overflow:hidden;background:var(--bg);color:var(--t1);flex:none;box-shadow:0 0 0 8px #18181C,0 0 0 9px #34343A,0 50px 90px -30px rgba(20,20,28,.4)}
+.scr{position:absolute;inset:0;padding:62px 20px 140px;display:flex;flex-direction:column;gap:24px;overflow:hidden}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(170%);backdrop-filter:blur(24px) saturate(170%);border:1px solid var(--glass-b);box-shadow:var(--sh2)}
+.thick{position:absolute;inset:0;background:rgba(245,244,240,.74);-webkit-backdrop-filter:blur(36px) saturate(160%);backdrop-filter:blur(36px) saturate(160%)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--sh1)}
+.h1{margin:0;font-size:32px;line-height:38px;font-weight:600;letter-spacing:-.03em}
+.h2{margin:0;font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.022em}
+.h3{margin:0;font-size:17px;line-height:22px;font-weight:550;letter-spacing:-.012em}
+.t{font-size:15px;line-height:21px}
+.b{font-size:15px;line-height:22px;color:var(--t2)}
+.s{font-size:13.5px;line-height:19px;color:var(--t2)}
+.m{font-size:12.5px;line-height:16px;color:var(--t3)}
+.cap{font-size:12px;line-height:16px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;color:var(--t3)}
+.mono{font-family:'Geist Mono',ui-monospace,Menlo,monospace;font-feature-settings:'tnum'}
+.row{display:flex;align-items:center;gap:12px}
+.col{display:flex;flex-direction:column}
+.g{flex:1;min-width:0}
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.ic.sm{width:16px;height:16px}
+.fill{fill:currentColor;stroke:none}
+.btn{appearance:none;border:0;margin:0;font:inherit;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:14px;font-size:15px;font-weight:550;letter-spacing:-.005em;cursor:pointer;white-space:nowrap;text-decoration:none;color:var(--t1)}
+.btn.p{background:var(--inv);color:var(--on-inv)}
+.btn.a{background:var(--acc);color:var(--on-acc)}
+.btn.s{background:var(--card);border:1px solid var(--line2)}
+.btn.t{background:var(--acc-s);color:var(--acc-t)}
+.btn.g{background:transparent;color:var(--acc-t);padding:0 8px}
+.btn.w{width:100%}
+.btn.lg{height:54px;border-radius:18px;font-size:16px}
+.ib{appearance:none;border:0;font:inherit;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--t1);padding:0;cursor:pointer;flex:none}
+.chip{appearance:none;font:inherit;display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 16px;border-radius:999px;font-size:14.5px;color:var(--t1);background:var(--card);border:1px solid var(--line2);cursor:pointer;white-space:nowrap}
+.bdg{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:550;white-space:nowrap}
+.bdg.w{background:var(--warn-s);color:var(--warn)}.bdg.o{background:var(--ok-s);color:var(--ok)}.bdg.a{background:var(--acc-s);color:var(--acc-t)}.bdg.n{background:var(--bg2);color:var(--t2)}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.dw{background:var(--warn-d)}.do{background:var(--ok-d)}.da{background:var(--acc)}
+.av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex:none;letter-spacing:-.01em}
+.av.sm{width:30px;height:30px;font-size:11px}
+.a1{background:#E7E6FB;color:#3E3AC8}.a2{background:#F5E6D3;color:#86480E}.a3{background:#DCEEE3;color:#246A43}.a5{background:#DFE9F4;color:#285C88}
+.sep{height:1px;background:var(--line);flex:none}
+.ai{color:var(--acc-t)}
+.scrim{position:absolute;inset:0;background:var(--scrim)}
+.sheet{position:absolute;left:8px;right:8px;bottom:8px;border-radius:44px;padding:10px 20px 24px;display:flex;flex-direction:column;gap:18px}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--line2);align-self:center}
+.tile{appearance:none;font:inherit;color:var(--t1);display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:16px;height:104px;padding:14px;border-radius:22px;background:var(--card);border:1px solid var(--line);cursor:pointer;text-align:left}
+.ti{width:38px;height:38px;border-radius:12px;background:var(--bg2);display:flex;align-items:center;justify-content:center}
+.bar{width:4px;border-radius:2px;background:var(--acc)}
+.fld{display:flex;align-items:center;gap:12px;min-height:58px}
+.fld .m{width:92px;flex:none}
+.under{position:absolute;inset:0;padding:62px 20px;display:flex;flex-direction:column;gap:22px}
+</style>
+</helmet>
+<div class="k board" style="width: 2366px; height: 1240px">
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <div class="be">06 · Capture &amp; copilot</div>
+    <h1 class="bt">Say it once. Nudge files it.</h1>
+    <p class="bd">One capture button everywhere. Voice is the fastest path: speak naturally, see exactly what was understood, confirm. The copilot answers in a sentence and always offers the next action.</p>
+  </div>
+  <div class="phones">
+
+    <!-- 15 Quick capture -->
+    <div class="shot">
+      <div class="sl"><span class="sn">15</span>Quick capture</div>
+      <div class="phone">
+        <div class="under" aria-hidden="true">
+          <div style="height: 44px"></div>
+          <div class="h1" style="font-size: 34px">Good morning, Alex.</div>
+          <div class="card" style="height: 180px"></div>
+          <div class="card" style="height: 120px"></div>
+        </div>
+        <div class="scrim"></div>
+        <div class="sheet glass" style="box-shadow: var(--sh3)">
+          <div class="grab"></div>
+          <div class="row" style="justify-content: space-between">
+            <div class="col" style="gap: 2px"><h2 class="h2">Capture</h2><span class="m">Nudge files it to the right customer.</span></div>
+            <button class="ib" aria-label="Close" style="background: var(--bg2); margin-right: -4px"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+          </div>
+          <button class="tile" style="height: 76px; flex-direction: row; align-items: center; background: var(--inv); color: var(--on-inv); border: 0; width: 100%">
+            <span class="ti" style="background: rgba(255,255,255,.14)"><svg class="ic" sc-camel-view-box="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"></path></svg></span>
+            <span class="g col" style="gap: 2px"><span class="t" style="font-weight: 600">Voice note</span><span style="font-size: 12.5px; opacity: .7">Just talk — “Rahul wants 50 units…”</span></span>
+          </button>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+            <button class="tile"><span class="ti"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"></path></svg></span><span class="s" style="color: var(--t1); font-weight: 550">Quick note</span></button>
+            <button class="tile"><span class="ti"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.5-2h6l1.5 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"></path><circle cx="12" cy="13" r="3.5"></circle></svg></span><span class="s" style="color: var(--t1); font-weight: 550">Photo</span></button>
+            <button class="tile"><span class="ti"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M7 3.5h6.5L18 8v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z"></path><path d="M13 3.5V8h5"></path></svg></span><span class="s" style="color: var(--t1); font-weight: 550">Document</span></button>
+            <button class="tile"><span class="ti"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"></path><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg></span><span class="s" style="color: var(--t1); font-weight: 550">Link</span></button>
+            <button class="tile"><span class="ti"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M20 11.5a8 8 0 0 1-11.8 7L4 19.5l1.1-4A8 8 0 1 1 20 11.5z"></path></svg></span><span class="s" style="color: var(--t1); font-weight: 550">Conversation</span></button>
+            <button class="tile"><span class="ti"><svg class="ic" sc-camel-view-box="0 0 24 24"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 19.5c.8-3.3 3.4-5 6.5-5s5.7 1.7 6.5 5M19 8v6M16 11h6"></path></svg></span><span class="s" style="color: var(--t1); font-weight: 550">Customer</span></button>
+          </div>
+          <div class="row" style="gap: 10px; padding: 0 4px"><svg class="ic sm" sc-camel-view-box="0 0 24 24" style="color: var(--t3)"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg><span class="m g">Last: voice note about Priya, filed 2 h ago</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 16 Voice listening -->
+    <div class="shot">
+      <div class="sl"><span class="sn">16</span>Voice capture · listening</div>
+      <div class="phone">
+        <div class="under" aria-hidden="true">
+          <div style="height: 44px"></div>
+          <div class="h1" style="font-size: 34px">Good morning, Alex.</div>
+          <div class="card" style="height: 180px"></div>
+        </div>
+        <div class="scrim"></div>
+        <div class="sheet glass" style="top: 220px; box-shadow: var(--sh3); padding-bottom: 30px">
+          <div class="grab"></div>
+          <div class="row" style="gap: 8px; justify-content: center; margin-top: 6px"><span class="dot" style="background: var(--bad-d)"></span><span class="s mono">Listening · 0:07</span></div>
+          <div class="t" style="font-size: 24px; line-height: 32px; font-weight: 500; letter-spacing: -.02em; text-align: center; padding: 18px 8px 0">Rahul wants 50 units and I’ll send the quotation <span style="color: var(--t3)">tomorrow</span></div>
+          <div class="row" style="gap: 5px; justify-content: center; height: 96px; margin-top: auto" aria-hidden="true">
+            <span class="bar" style="height: 14px; opacity: .35"></span><span class="bar" style="height: 22px; opacity: .45"></span><span class="bar" style="height: 40px; opacity: .6"></span><span class="bar" style="height: 64px; opacity: .8"></span><span class="bar" style="height: 88px"></span><span class="bar" style="height: 56px"></span><span class="bar" style="height: 76px"></span><span class="bar" style="height: 44px; opacity: .85"></span><span class="bar" style="height: 68px"></span><span class="bar" style="height: 30px; opacity: .7"></span><span class="bar" style="height: 52px; opacity: .8"></span><span class="bar" style="height: 24px; opacity: .55"></span><span class="bar" style="height: 36px; opacity: .5"></span><span class="bar" style="height: 16px; opacity: .4"></span><span class="bar" style="height: 10px; opacity: .3"></span>
+          </div>
+          <div class="row" style="justify-content: space-between; padding: 8px 10px 0">
+            <button class="ib" aria-label="Cancel recording" style="width: 56px; height: 56px; background: var(--bg2)"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+            <button class="ib" aria-label="Stop and review" style="width: 80px; height: 80px; background: var(--inv); color: var(--on-inv); box-shadow: 0 0 0 8px rgba(20,20,28,.06)"><span style="width: 24px; height: 24px; border-radius: 6px; background: currentColor"></span></button>
+            <button class="ib" aria-label="Type instead" style="width: 56px; height: 56px; background: var(--bg2)"><svg class="ic" sc-camel-view-box="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"></rect><path d="M7 10h.01M11 10h.01M15 10h.01M8 14h8"></path></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 16b Voice understood -->
+    <div class="shot">
+      <div class="sl"><span class="sn">16b</span>Voice capture · understood</div>
+      <div class="phone">
+        <div class="under" aria-hidden="true">
+          <div style="height: 44px"></div>
+          <div class="h1" style="font-size: 34px">Good morning, Alex.</div>
+          <div class="card" style="height: 180px"></div>
+        </div>
+        <div class="scrim"></div>
+        <div class="sheet glass" style="top: 150px; box-shadow: var(--sh3); gap: 16px">
+          <div class="grab"></div>
+          <div class="row" style="gap: 10px">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--ok-d); color: #FFFFFF; display: flex; align-items: center; justify-content: center"><svg class="ic sm" sc-camel-view-box="0 0 24 24" style="stroke-width: 2.4"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></div>
+            <h2 class="h2">Understood</h2>
+          </div>
+          <div class="s" style="font-style: italic">“Rahul wants 50 units and I’ll send the quotation tomorrow.”</div>
+          <div class="card col" style="padding: 2px 16px; box-shadow: none">
+            <div class="fld"><span class="m">Customer</span><div class="row g" style="gap: 10px"><div class="av a1 sm">RS</div><div class="col"><span class="t">Rahul Sharma</span><span class="m" style="width: auto">Sharma Retail</span></div></div></div>
+            <div class="sep"></div>
+            <div class="fld"><span class="m">Requirement</span><span class="t g">50 units · 4-tier rack</span></div>
+            <div class="sep"></div>
+            <div class="fld"><span class="m">Action</span><span class="t g">Send quotation</span><span class="bdg a">Promise</span></div>
+            <div class="sep"></div>
+            <div class="fld"><span class="m">Due</span><span class="t g">Tomorrow, Wed 7 Oct</span><svg class="ic sm" sc-camel-view-box="0 0 24 24" style="color: var(--t3)"><path d="m9.5 6 6 6-6 6"></path></svg></div>
+          </div>
+          <div class="row" style="gap: 10px; align-items: flex-start; padding: 0 2px">
+            <svg class="ic sm ai" sc-camel-view-box="0 0 24 24" style="margin-top: 2px"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>
+            <span class="s">Saving adds a promise to Promise Radar and a note to Rahul’s memory. Tap any line to fix it.</span>
+          </div>
+          <div class="row" style="gap: 8px; margin-top: auto">
+            <button class="btn s lg" style="flex: 1">Edit</button>
+            <button class="btn p lg" style="flex: 2">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10a Copilot open -->
+    <div class="shot">
+      <div class="sl"><span class="sn">10a</span>AI copilot · open</div>
+      <div class="phone">
+        <div class="under" aria-hidden="true">
+          <div style="height: 44px"></div>
+          <div class="h1" style="font-size: 34px">Good morning, Alex.</div>
+          <div class="card" style="height: 200px"></div>
+          <div class="card" style="height: 120px; background: #EDEBFB"></div>
+        </div>
+        <div class="thick"></div>
+        <div class="scr" style="padding-bottom: 30px; gap: 28px">
+          <div class="row" style="justify-content: flex-end; margin-right: -10px"><button class="ib" aria-label="Close copilot"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"></path></svg></button></div>
+          <div class="col" style="gap: 16px; padding-top: 30px">
+            <div style="width: 52px; height: 52px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, rgba(75,71,224,.22), rgba(75,71,224,.06) 70%); color: var(--acc); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 8px rgba(75,71,224,.05)">
+              <svg class="ic" sc-camel-view-box="0 0 24 24" style="width: 26px; height: 26px"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>
+            </div>
+            <h2 class="h1" style="font-size: 34px; line-height: 40px">What do you need?</h2>
+            <div class="b">I know your 38 customers, 9 open promises and every conversation since July.</div>
+          </div>
+          <div class="col" style="gap: 8px; align-items: flex-start">
+            <button class="chip">Who needs a follow-up?</button>
+            <button class="chip">Show customers who haven’t replied</button>
+            <button class="chip">What did I promise today?</button>
+            <button class="chip">Which customers are likely to buy?</button>
+            <button class="chip">Summarize my day</button>
+          </div>
+          <div class="row glass" style="height: 56px; border-radius: 28px; padding: 0 6px 0 18px; margin-top: auto; background: rgba(255,255,255,.9)">
+            <span class="g" style="font-size: 15px; color: var(--t3)">Ask anything…</span>
+            <button class="ib" aria-label="Ask by voice" style="background: var(--inv); color: var(--on-inv)"><svg class="ic" sc-camel-view-box="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"></path></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10b Copilot answer -->
+    <div class="shot">
+      <div class="sl"><span class="sn">10b</span>AI copilot · answer</div>
+      <div class="phone">
+        <div class="under" aria-hidden="true">
+          <div style="height: 44px"></div>
+          <div class="h1" style="font-size: 34px">Good morning, Alex.</div>
+          <div class="card" style="height: 200px"></div>
+        </div>
+        <div class="thick"></div>
+        <div class="scr" style="padding-bottom: 30px; gap: 22px">
+          <div class="row" style="justify-content: space-between; margin: 0 -10px"><button class="ib" aria-label="New question"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"></path></svg></button><button class="ib" aria-label="Close copilot"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"></path></svg></button></div>
+          <div style="align-self: flex-end; background: var(--inv); color: var(--on-inv); padding: 10px 14px; border-radius: 18px; border-bottom-right-radius: 6px; font-size: 15px">Who needs a follow-up?</div>
+          <div class="col" style="gap: 14px">
+            <div class="row ai" style="gap: 8px; font-size: 13px; font-weight: 600"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>Nudge</div>
+            <div class="h3" style="font-size: 20px; line-height: 26px; font-weight: 550">3 customers need follow-up.</div>
+            <div class="card col" style="padding: 2px 16px">
+              <div class="row" style="min-height: 62px"><div class="av a1 sm">RS</div><div class="g"><div class="t" style="font-weight: 550">Rahul</div><div class="m">Quotation · promised Mon</div></div><span class="dot dw"></span></div>
+              <div class="sep"></div>
+              <div class="row" style="min-height: 62px"><div class="av a2 sm">PM</div><div class="g"><div class="t" style="font-weight: 550">Priya</div><div class="m">Delivery date · 2 days waiting</div></div><span class="dot dw"></span></div>
+              <div class="sep"></div>
+              <div class="row" style="min-height: 62px"><div class="av a3 sm">AV</div><div class="g"><div class="t" style="font-weight: 550">Aman</div><div class="m">Payment link · <span class="mono">₹40,000</span></div></div><span class="dot do"></span></div>
+            </div>
+            <div class="row" style="gap: 8px">
+              <button class="btn p" style="flex: 1">Review all</button>
+              <button class="btn t" style="flex: 1"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>Draft 3 replies</button>
+            </div>
+            <div class="m">From 42 conversations this week</div>
+          </div>
+          <div class="row glass" style="height: 56px; border-radius: 28px; padding: 0 6px 0 18px; margin-top: auto; background: rgba(255,255,255,.9)">
+            <span class="g" style="font-size: 15px; color: var(--t3)">Ask a follow-up…</span>
+            <button class="ib" aria-label="Ask by voice" style="background: var(--inv); color: var(--on-inv)"><svg class="ic" sc-camel-view-box="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"></path></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:2366,&quot;height&quot;:1240}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+
+
+</body></html>

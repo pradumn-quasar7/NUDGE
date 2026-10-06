@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Nudge — Onboarding</title>
+<script src="8bdf958c-358b-4863-9887-f43e745f2e8b"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style></style>
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#3E3AC8}a:hover{color:#2B28A0}
+.k{--bg:#F5F4F0;--bg2:#ECEBE6;--card:#FFFFFF;--glass:rgba(255,255,255,.68);--glass-b:rgba(255,255,255,.85);--line:rgba(20,20,28,.07);--line2:rgba(20,20,28,.12);--t1:#121217;--t2:#52525C;--t3:#696973;--acc:#4B47E0;--on-acc:#FFFFFF;--acc-t:#3E3AC8;--acc-s:rgba(75,71,224,.07);--acc-s2:rgba(75,71,224,.14);--ok:#2C7A50;--ok-d:#3AA36B;--ok-s:rgba(58,163,107,.12);--warn:#94570B;--warn-d:#E09B32;--warn-s:rgba(224,155,50,.14);--bad:#B03A30;--bad-d:#D5554A;--bad-s:rgba(213,85,74,.10);--inv:#121217;--on-inv:#FFFFFF;--sh1:0 1px 2px rgba(20,20,28,.04);--sh2:0 12px 32px -14px rgba(20,20,28,.18),0 0 0 1px rgba(20,20,28,.04);--sh3:0 30px 70px -20px rgba(20,20,28,.3),0 6px 16px rgba(20,20,28,.06);--scrim:rgba(20,20,28,.22);font-family:'Geist',-apple-system,'SF Pro Text','Roboto',system-ui,sans-serif;color:var(--t1);-webkit-font-smoothing:antialiased}
+.board{padding:72px 80px;background:#E9E8E3;display:flex;flex-direction:column;gap:44px}
+.be{font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:var(--t3)}
+.bt{margin:0;font-size:44px;line-height:50px;font-weight:600;letter-spacing:-.035em}
+.bd{margin:0;font-size:17px;line-height:26px;color:var(--t2);max-width:900px}
+.phones{display:flex;gap:64px;align-items:flex-start}
+.shot{display:flex;flex-direction:column;gap:22px;flex:none}
+.sl{display:flex;gap:10px;align-items:baseline;font-size:15px;font-weight:550;padding-left:6px}
+.sn{font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;font-weight:400;color:var(--t3)}
+.phone{position:relative;width:390px;height:844px;border-radius:54px;overflow:hidden;background:var(--bg);color:var(--t1);flex:none;box-shadow:0 0 0 8px #18181C,0 0 0 9px #34343A,0 50px 90px -30px rgba(20,20,28,.4)}
+.scr{position:absolute;inset:0;padding:62px 20px 140px;display:flex;flex-direction:column;gap:24px;overflow:hidden}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(170%);backdrop-filter:blur(24px) saturate(170%);border:1px solid var(--glass-b);box-shadow:var(--sh2)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--sh1)}
+.h1{margin:0;font-size:32px;line-height:38px;font-weight:600;letter-spacing:-.03em}
+.h3{margin:0;font-size:17px;line-height:22px;font-weight:550;letter-spacing:-.012em}
+.t{font-size:15px;line-height:21px}
+.b{font-size:15px;line-height:22px;color:var(--t2)}
+.s{font-size:13.5px;line-height:19px;color:var(--t2)}
+.m{font-size:12.5px;line-height:16px;color:var(--t3)}
+.mono{font-family:'Geist Mono',ui-monospace,Menlo,monospace;font-feature-settings:'tnum'}
+.row{display:flex;align-items:center;gap:12px}
+.col{display:flex;flex-direction:column}
+.g{flex:1;min-width:0}
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.ic.sm{width:16px;height:16px}
+.fill{fill:currentColor;stroke:none}
+.btn{appearance:none;border:0;margin:0;font:inherit;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:14px;font-size:15px;font-weight:550;letter-spacing:-.005em;cursor:pointer;white-space:nowrap;text-decoration:none;color:var(--t1)}
+.btn.p{background:var(--inv);color:var(--on-inv)}
+.btn.a{background:var(--acc);color:var(--on-acc)}
+.btn.s{background:var(--card);border:1px solid var(--line2)}
+.btn.g{background:transparent;color:var(--t2);padding:0 10px}
+.btn.w{width:100%}
+.btn.lg{height:56px;border-radius:18px;font-size:16px}
+.chip{appearance:none;font:inherit;display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 16px;border-radius:999px;font-size:14px;color:var(--t1);background:var(--card);border:1px solid var(--line2);cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--inv);color:var(--on-inv);border-color:transparent}
+.bdg{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:550;white-space:nowrap}
+.bdg.w{background:var(--warn-s);color:var(--warn)}.bdg.o{background:var(--ok-s);color:var(--ok)}.bdg.a{background:var(--acc-s);color:var(--acc-t)}.bdg.n{background:var(--bg2);color:var(--t2)}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.dw{background:var(--warn-d)}.do{background:var(--ok-d)}.da{background:var(--acc)}
+.av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex:none}
+.a1{background:#E7E6FB;color:#3E3AC8}.a2{background:#F5E6D3;color:#86480E}.a3{background:#DCEEE3;color:#246A43}
+.ai{color:var(--acc-t)}
+.aic{border-radius:22px;padding:18px;background:linear-gradient(160deg,var(--acc-s2),var(--acc-s) 45%,rgba(255,255,255,0) 80%),var(--glass);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border:1px solid var(--glass-b);box-shadow:var(--sh2)}
+.inp{display:flex;align-items:center;gap:10px;height:56px;border-radius:16px;background:var(--card);border:1px solid var(--line2);padding:0 16px;font:inherit;font-size:17px;color:var(--t1);width:100%}
+.prog{display:flex;gap:6px}
+.prog span{flex:1;height:4px;border-radius:2px;background:var(--line2)}
+.prog span.on{background:var(--inv)}
+.opt{appearance:none;font:inherit;color:var(--t1);text-align:left;display:flex;align-items:center;gap:14px;min-height:64px;padding:0 16px;border-radius:18px;background:var(--card);border:1px solid var(--line);width:100%;cursor:pointer}
+.opt.on{border-color:var(--inv);box-shadow:0 0 0 1px var(--inv)}
+.oi{width:36px;height:36px;border-radius:11px;background:var(--bg2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--t1)}
+.ck{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--line2);flex:none;display:flex;align-items:center;justify-content:center}
+.ck.on{background:var(--inv);border-color:var(--inv);color:#FFFFFF}
+.foot{position:absolute;left:20px;right:20px;bottom:40px;display:flex;flex-direction:column;gap:8px}
+</style>
+</helmet>
+<div class="k board" style="width: 2820px; height: 1240px">
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <div class="be">02 · First run · under 2 minutes</div>
+    <h1 class="bt">Splash, welcome &amp; onboarding</h1>
+    <p class="bd">Four questions, no pipelines, no custom fields, no workflows. Nudge learns the rest from conversations — and says so, so nobody feels they have to set it up.</p>
+  </div>
+  <div class="phones">
+
+    <!-- 01 Splash -->
+    <div class="shot">
+      <div class="sl"><span class="sn">01</span>Splash</div>
+      <div class="phone" style="background: radial-gradient(120% 60% at 50% 42%, rgba(75,71,224,.09), rgba(245,244,240,0) 60%), #F5F4F0">
+        <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px">
+          <div style="width: 84px; height: 84px; border-radius: 26px; background: #121217; color: #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 24px 48px -18px rgba(20,20,28,.5)">
+            <svg class="ic" sc-camel-view-box="0 0 24 24" style="width: 40px; height: 40px"><path class="fill" d="M12 2.5c.7 5.2 4.3 8.8 9.5 9.5-5.2.7-8.8 4.3-9.5 9.5-.7-5.2-4.3-8.8-9.5-9.5 5.2-.7 8.8-4.3 9.5-9.5z"></path></svg>
+          </div>
+          <div style="font-size: 30px; font-weight: 600; letter-spacing: -.035em">Nudge</div>
+        </div>
+        <div class="m" style="position: absolute; left: 0; right: 0; bottom: 56px; text-align: center">Your business, remembered.</div>
+      </div>
+    </div>
+
+    <!-- 02 Welcome -->
+    <div class="shot">
+      <div class="sl"><span class="sn">02</span>Welcome</div>
+      <div class="phone">
+        <div style="position: absolute; left: 0; right: 0; top: 70px; height: 420px">
+          <div class="card" style="position: absolute; left: 34px; top: 30px; width: 260px; padding: 16px; display: flex; flex-direction: column; gap: 10px; transform: rotate(-3deg); box-shadow: var(--sh2)">
+            <div class="row" style="gap: 10px"><div class="av a2" style="width: 30px; height: 30px; font-size: 11px">PM</div><span class="s" style="color: var(--t1); font-weight: 550">Priya Mehta</span></div>
+            <div class="m" style="line-height: 18px">Prefers calls after 5 pm. Second order is usually 2× the first.</div>
+          </div>
+          <div class="card" style="position: absolute; right: 26px; top: 150px; width: 250px; padding: 16px; display: flex; flex-direction: column; gap: 10px; transform: rotate(2.5deg); box-shadow: var(--sh2)">
+            <div class="row" style="justify-content: space-between"><span class="s" style="color: var(--t1); font-weight: 550">Send revised quote</span><span class="dot dw"></span></div>
+            <div class="m">Promised to Rahul · due today</div>
+          </div>
+          <div class="aic" style="position: absolute; left: 44px; top: 268px; width: 280px; display: flex; flex-direction: column; gap: 8px">
+            <div class="row ai" style="gap: 8px; font-size: 12.5px; font-weight: 600"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>Remembered</div>
+            <div class="s" style="color: var(--t1)">Aman asked for 50 units by the 28th.</div>
+          </div>
+        </div>
+        <div style="position: absolute; left: 24px; right: 24px; bottom: 40px; display: flex; flex-direction: column; gap: 28px">
+          <div class="col" style="gap: 12px">
+            <div class="row" style="gap: 8px; margin-bottom: 6px">
+              <div style="width: 28px; height: 28px; border-radius: 9px; background: #121217; color: #FFFFFF; display: flex; align-items: center; justify-content: center"><svg class="ic" sc-camel-view-box="0 0 24 24" style="width: 14px; height: 14px"><path class="fill" d="M12 2.5c.7 5.2 4.3 8.8 9.5 9.5-5.2.7-8.8 4.3-9.5 9.5-.7-5.2-4.3-8.8-9.5-9.5 5.2-.7 8.8-4.3 9.5-9.5z"></path></svg></div>
+              <span style="font-size: 18px; font-weight: 600; letter-spacing: -.03em">Nudge</span>
+            </div>
+            <h2 class="h1" style="font-size: 36px; line-height: 40px">Your business, remembered.</h2>
+            <div class="b">Every conversation, commitment and follow-up — kept for you, so nothing slips.</div>
+          </div>
+          <div class="col" style="gap: 8px">
+            <a class="btn p lg w" href="#">Get started</a>
+            <a class="btn g w" href="#">I already have an account</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 03 What do you sell -->
+    <div class="shot">
+      <div class="sl"><span class="sn">03</span>Onboarding · what you sell</div>
+      <div class="phone">
+        <div class="scr" style="gap: 32px">
+          <div class="row" style="justify-content: space-between; margin: 0 -8px">
+            <button class="btn g" aria-label="Back" style="width: 44px; padding: 0; color: var(--t1)"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="m14.5 6-6 6 6 6"></path></svg></button>
+            <div class="prog" style="width: 140px"><span class="on"></span><span></span><span></span><span></span></div>
+            <button class="btn g">Skip</button>
+          </div>
+          <div class="col" style="gap: 10px">
+            <div class="m mono">1 of 4</div>
+            <h2 class="h1">What do you sell?</h2>
+            <div class="b">A few words is enough. Nudge uses this to recognise orders, quotes and requirements in your chats.</div>
+          </div>
+          <div class="col" style="gap: 8px">
+            <label class="m" for="o-sell">Your products or services</label>
+            <input id="o-sell" class="inp" value="Retail display fixtures &amp; shelving" style="border-color: var(--inv); box-shadow: 0 0 0 4px rgba(20,20,28,.06)">
+          </div>
+          <div class="col" style="gap: 12px">
+            <div class="row ai" style="gap: 8px; font-size: 13px; font-weight: 550"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>Sounds like you also handle</div>
+            <div class="row" style="flex-wrap: wrap; gap: 8px">
+              <button class="chip on">Custom orders</button>
+              <button class="chip">Installation</button>
+              <button class="chip">Bulk quotes</button>
+              <button class="chip">Repairs</button>
+            </div>
+          </div>
+        </div>
+        <div class="foot"><button class="btn p lg w">Continue</button></div>
+      </div>
+    </div>
+
+    <!-- 04 How customers contact -->
+    <div class="shot">
+      <div class="sl"><span class="sn">04</span>Business setup · channels</div>
+      <div class="phone">
+        <div class="scr" style="gap: 28px">
+          <div class="row" style="justify-content: space-between; margin: 0 -8px">
+            <button class="btn g" aria-label="Back" style="width: 44px; padding: 0; color: var(--t1)"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="m14.5 6-6 6 6 6"></path></svg></button>
+            <div class="prog" style="width: 140px"><span class="on"></span><span class="on"></span><span></span><span></span></div>
+            <button class="btn g">Skip</button>
+          </div>
+          <div class="col" style="gap: 10px">
+            <div class="m mono">2 of 4</div>
+            <h2 class="h1">How do customers usually contact you?</h2>
+            <div class="b">Pick all that apply.</div>
+          </div>
+          <div class="col" style="gap: 10px" role="group" aria-label="Contact channels">
+            <button class="opt on" aria-pressed="true"><span class="oi"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M20 11.5a8 8 0 0 1-11.8 7L4 19.5l1.1-4A8 8 0 1 1 20 11.5z"></path></svg></span><span class="g t" style="font-weight: 550">WhatsApp</span><span class="ck on"><svg class="ic sm" sc-camel-view-box="0 0 24 24" style="width: 14px; height: 14px; stroke-width: 2.4"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span></button>
+            <button class="opt on" aria-pressed="true"><span class="oi"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M5 4h3.5l1.5 4-2 1.5a11 11 0 0 0 6.5 6.5l1.5-2 4 1.5V19a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"></path></svg></span><span class="g t" style="font-weight: 550">Phone</span><span class="ck on"><svg class="ic sm" sc-camel-view-box="0 0 24 24" style="width: 14px; height: 14px; stroke-width: 2.4"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span></button>
+            <button class="opt on" aria-pressed="true"><span class="oi"><svg class="ic" sc-camel-view-box="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2"></rect><path d="m4 7 8 6 8-6"></path></svg></span><span class="g t" style="font-weight: 550">Email</span><span class="ck on"><svg class="ic sm" sc-camel-view-box="0 0 24 24" style="width: 14px; height: 14px; stroke-width: 2.4"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span></button>
+            <button class="opt" aria-pressed="false"><span class="oi"><svg class="ic" sc-camel-view-box="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="5"></rect><circle cx="12" cy="12" r="3.8"></circle></svg></span><span class="g t" style="font-weight: 550">Instagram</span><span class="ck"></span></button>
+            <button class="opt" aria-pressed="false"><span class="oi"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg></span><span class="g t" style="font-weight: 550">Something else</span><span class="ck"></span></button>
+          </div>
+        </div>
+        <div class="foot"><button class="btn p lg w">Continue</button></div>
+      </div>
+    </div>
+
+    <!-- 05 Integrations -->
+    <div class="shot">
+      <div class="sl"><span class="sn">05</span>Integration setup</div>
+      <div class="phone">
+        <div class="scr" style="gap: 26px">
+          <div class="row" style="justify-content: space-between; margin: 0 -8px">
+            <button class="btn g" aria-label="Back" style="width: 44px; padding: 0; color: var(--t1)"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="m14.5 6-6 6 6 6"></path></svg></button>
+            <div class="prog" style="width: 140px"><span class="on"></span><span class="on"></span><span class="on"></span><span></span></div>
+            <button class="btn g">Later</button>
+          </div>
+          <div class="col" style="gap: 10px">
+            <div class="m mono">3 of 4</div>
+            <h2 class="h1">Connect where conversations happen</h2>
+          </div>
+          <div class="card col" style="padding: 4px 16px">
+            <div class="row" style="min-height: 72px; gap: 14px">
+              <span class="oi"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M20 11.5a8 8 0 0 1-11.8 7L4 19.5l1.1-4A8 8 0 1 1 20 11.5z"></path></svg></span>
+              <div class="g"><div class="t" style="font-weight: 550">WhatsApp Business</div><div class="m">214 chats from the last 90 days</div></div>
+              <span class="bdg o"><svg class="ic sm" sc-camel-view-box="0 0 24 24" style="width: 12px; height: 12px; stroke-width: 2.6"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>Connected</span>
+            </div>
+            <div style="height: 1px; background: var(--line)"></div>
+            <div class="row" style="min-height: 72px; gap: 14px">
+              <span class="oi"><svg class="ic" sc-camel-view-box="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2"></rect><path d="m4 7 8 6 8-6"></path></svg></span>
+              <div class="g"><div class="t" style="font-weight: 550">Gmail</div><div class="m">Quotes, invoices, threads</div></div>
+              <button class="btn s" style="height: 44px; padding: 0 14px; font-size: 14px">Connect</button>
+            </div>
+            <div style="height: 1px; background: var(--line)"></div>
+            <div class="row" style="min-height: 72px; gap: 14px">
+              <span class="oi"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M5 4h3.5l1.5 4-2 1.5a11 11 0 0 0 6.5 6.5l1.5-2 4 1.5V19a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"></path></svg></span>
+              <div class="g"><div class="t" style="font-weight: 550">Calls</div><div class="m">Log calls, add voice notes</div></div>
+              <button class="btn s" style="height: 44px; padding: 0 14px; font-size: 14px">Connect</button>
+            </div>
+            <div style="height: 1px; background: var(--line)"></div>
+            <div class="row" style="min-height: 72px; gap: 14px">
+              <span class="oi"><svg class="ic" sc-camel-view-box="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"></rect><path d="M3.5 9.5h17M8 3v4M16 3v4"></path></svg></span>
+              <div class="g"><div class="t" style="font-weight: 550">Calendar</div><div class="m">Meetings and site visits</div></div>
+              <button class="btn s" style="height: 44px; padding: 0 14px; font-size: 14px">Connect</button>
+            </div>
+          </div>
+          <div class="row" style="gap: 12px; align-items: flex-start">
+            <svg class="ic" sc-camel-view-box="0 0 24 24" style="color: var(--ok); margin-top: 1px"><path d="M12 3.5 19 6v5.5c0 4.2-3 7.6-7 9-4-1.4-7-4.8-7-9V6z"></path><path d="m9 12 2 2 4-4"></path></svg>
+            <div class="s">Nudge reads conversations only to remember people and promises. Nothing is sent on your behalf without a tap. Disconnect any time.</div>
+          </div>
+        </div>
+        <div class="foot"><button class="btn p lg w">Continue</button></div>
+      </div>
+    </div>
+
+    <!-- 06 Ready -->
+    <div class="shot">
+      <div class="sl"><span class="sn">06</span>You’re ready</div>
+      <div class="phone" style="background: radial-gradient(100% 50% at 50% 0%, rgba(75,71,224,.10), rgba(245,244,240,0) 70%), #F5F4F0">
+        <div class="scr" style="gap: 36px; padding-top: 120px">
+          <div class="col" style="gap: 14px; align-items: flex-start">
+            <div style="width: 56px; height: 56px; border-radius: 18px; background: var(--acc); color: #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 16px 32px -14px rgba(75,71,224,.7)">
+              <svg class="ic" sc-camel-view-box="0 0 24 24" style="width: 26px; height: 26px"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>
+            </div>
+            <h2 class="h1" style="font-size: 36px; line-height: 40px">You’re ready, Alex.</h2>
+            <div class="b">We’ll start learning how your business works. Most of it is already here.</div>
+          </div>
+          <div class="card col" style="padding: 6px 18px">
+            <div class="row" style="min-height: 58px"><span class="ck on" style="background: var(--ok-d); border-color: var(--ok-d)"><svg class="ic sm" sc-camel-view-box="0 0 24 24" style="width: 14px; height: 14px; stroke-width: 2.4; color: #FFFFFF"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span><span class="t g">Found customers</span><span class="mono t" style="font-weight: 550">38</span></div>
+            <div style="height: 1px; background: var(--line)"></div>
+            <div class="row" style="min-height: 58px"><span class="ck on" style="background: var(--ok-d); border-color: var(--ok-d)"><svg class="ic sm" sc-camel-view-box="0 0 24 24" style="width: 14px; height: 14px; stroke-width: 2.4; color: #FFFFFF"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span><span class="t g">Open promises</span><span class="mono t" style="font-weight: 550">6</span></div>
+            <div style="height: 1px; background: var(--line)"></div>
+            <div class="row" style="min-height: 58px"><span class="ck" style="border-color: var(--acc-s2)"><span class="dot da"></span></span><span class="t g ai">Reading 214 conversations…</span><span class="mono m">62%</span></div>
+          </div>
+        </div>
+        <div class="foot"><button class="btn p lg w">Go to Home</button><div class="m" style="text-align: center; margin-top: 4px">You can keep using Nudge while it learns.</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:2820,&quot;height&quot;:1240}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+
+
+</body></html>

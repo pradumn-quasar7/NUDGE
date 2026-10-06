@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Nudge — Search and Insights</title>
+<script src="50a8fff3-f053-48f6-b7cc-54f85f0af1df"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style></style>
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#3E3AC8}a:hover{color:#2B28A0}
+.k{--bg:#F5F4F0;--bg2:#ECEBE6;--card:#FFFFFF;--glass:rgba(255,255,255,.68);--glass-b:rgba(255,255,255,.85);--line:rgba(20,20,28,.07);--line2:rgba(20,20,28,.12);--t1:#121217;--t2:#52525C;--t3:#696973;--acc:#4B47E0;--on-acc:#FFFFFF;--acc-t:#3E3AC8;--acc-s:rgba(75,71,224,.07);--acc-s2:rgba(75,71,224,.14);--ok:#2C7A50;--ok-d:#3AA36B;--ok-s:rgba(58,163,107,.12);--warn:#94570B;--warn-d:#E09B32;--warn-s:rgba(224,155,50,.14);--bad:#B03A30;--bad-d:#D5554A;--bad-s:rgba(213,85,74,.10);--inv:#121217;--on-inv:#FFFFFF;--sh1:0 1px 2px rgba(20,20,28,.04);--sh2:0 12px 32px -14px rgba(20,20,28,.18),0 0 0 1px rgba(20,20,28,.04);--sh3:0 30px 70px -20px rgba(20,20,28,.3),0 6px 16px rgba(20,20,28,.06);--scrim:rgba(20,20,28,.22);--fade:rgba(245,244,240,0);font-family:'Geist',-apple-system,'SF Pro Text','Roboto',system-ui,sans-serif;color:var(--t1);-webkit-font-smoothing:antialiased}
+.board{padding:72px 80px;background:#E9E8E3;display:flex;flex-direction:column;gap:44px}
+.be{font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:var(--t3)}
+.bt{margin:0;font-size:44px;line-height:50px;font-weight:600;letter-spacing:-.035em}
+.bd{margin:0;font-size:17px;line-height:26px;color:var(--t2);max-width:900px}
+.phones{display:flex;gap:64px;align-items:flex-start}
+.shot{display:flex;flex-direction:column;gap:22px;flex:none}
+.sl{display:flex;gap:10px;align-items:baseline;font-size:15px;font-weight:550;padding-left:6px}
+.sn{font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;font-weight:400;color:var(--t3)}
+.phone{position:relative;width:390px;height:844px;border-radius:54px;overflow:hidden;background:var(--bg);color:var(--t1);flex:none;box-shadow:0 0 0 8px #18181C,0 0 0 9px #34343A,0 50px 90px -30px rgba(20,20,28,.4)}
+.scr{position:absolute;inset:0;padding:62px 20px 140px;display:flex;flex-direction:column;gap:24px;overflow:hidden}
+.nav{position:absolute;left:0;bottom:16px}
+.fade{position:absolute;left:0;right:0;bottom:0;height:200px;background:linear-gradient(var(--fade),var(--bg) 78%);pointer-events:none}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(170%);backdrop-filter:blur(24px) saturate(170%);border:1px solid var(--glass-b);box-shadow:var(--sh2)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--sh1)}
+.h1{margin:0;font-size:32px;line-height:38px;font-weight:600;letter-spacing:-.03em}
+.h2{margin:0;font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.022em}
+.h3{margin:0;font-size:17px;line-height:22px;font-weight:550;letter-spacing:-.012em}
+.t{font-size:15px;line-height:21px}
+.b{font-size:15px;line-height:22px;color:var(--t2)}
+.s{font-size:13.5px;line-height:19px;color:var(--t2)}
+.m{font-size:12.5px;line-height:16px;color:var(--t3)}
+.cap{font-size:12px;line-height:16px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;color:var(--t3)}
+.mono{font-family:'Geist Mono',ui-monospace,Menlo,monospace;font-feature-settings:'tnum'}
+.row{display:flex;align-items:center;gap:12px}
+.col{display:flex;flex-direction:column}
+.g{flex:1;min-width:0}
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.ic.sm{width:16px;height:16px}
+.fill{fill:currentColor;stroke:none}
+.btn{appearance:none;border:0;margin:0;font:inherit;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:14px;font-size:15px;font-weight:550;letter-spacing:-.005em;cursor:pointer;white-space:nowrap;text-decoration:none;color:var(--t1)}
+.btn.p{background:var(--inv);color:var(--on-inv)}
+.btn.a{background:var(--acc);color:var(--on-acc)}
+.btn.s{background:var(--card);border:1px solid var(--line2)}
+.btn.t{background:var(--acc-s);color:var(--acc-t)}
+.btn.g{background:transparent;color:var(--acc-t);padding:0 8px}
+.btn.w{width:100%}
+.btn.sm{padding:0 14px;font-size:14px;border-radius:12px}
+.ib{appearance:none;border:0;font:inherit;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--t1);padding:0;cursor:pointer;flex:none}
+.bdg{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:550;white-space:nowrap}
+.bdg.w{background:var(--warn-s);color:var(--warn)}.bdg.o{background:var(--ok-s);color:var(--ok)}.bdg.a{background:var(--acc-s);color:var(--acc-t)}.bdg.n{background:var(--bg2);color:var(--t2)}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.dw{background:var(--warn-d)}.do{background:var(--ok-d)}.da{background:var(--acc)}.dn{background:var(--t3)}
+.av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex:none;letter-spacing:-.01em}
+.av.sm{width:30px;height:30px;font-size:11px}
+.a1{background:#E7E6FB;color:#3E3AC8}.a2{background:#F5E6D3;color:#86480E}.a3{background:#DCEEE3;color:#246A43}.a4{background:#F6DEDB;color:#9A3128}.a5{background:#DFE9F4;color:#285C88}.a6{background:#ECE4F2;color:#6A3D86}
+.sep{height:1px;background:var(--line);flex:none}
+.ai{color:var(--acc-t)}
+.aic{border-radius:22px;padding:18px;background:linear-gradient(160deg,var(--acc-s2),var(--acc-s) 45%,rgba(255,255,255,0) 80%),var(--glass);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border:1px solid var(--glass-b);box-shadow:var(--sh2)}
+.sf{display:flex;align-items:center;gap:10px;height:54px;border-radius:18px;padding:0 14px;flex:1;min-width:0}
+.li{display:flex;align-items:center;gap:14px;min-height:56px}
+.lg{width:32px;height:32px;border-radius:10px;background:var(--bg2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--t2)}
+.kbd{font-family:'Geist Mono',ui-monospace,monospace;font-size:11.5px;color:var(--t3);border:1px solid var(--line2);border-radius:6px;padding:2px 6px}
+.spark{display:flex;align-items:flex-end;gap:4px;height:48px}
+.spark span{flex:1;border-radius:3px;background:var(--line2)}
+.tile{flex:1;padding:16px;border-radius:18px;background:var(--card);border:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+</style>
+</helmet>
+<div class="k board" style="width: 1458px; height: 1240px">
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <div class="be">07 · Search &amp; Insights</div>
+    <h1 class="bt">Ask in plain words. Get observations, not charts.</h1>
+    <p class="bd">Search behaves like a command bar and understands questions. Insights replace dashboards with a few observations Nudge can stand behind — each with something to do.</p>
+  </div>
+  <div class="phones">
+
+    <!-- 18 Search -->
+    <div class="shot">
+      <div class="sl"><span class="sn">18</span>Search</div>
+      <div class="phone">
+        <div class="scr" style="gap: 26px">
+          <div class="row" style="gap: 6px">
+            <div class="sf glass" style="background: var(--card); border-color: var(--acc); box-shadow: 0 0 0 4px var(--acc-s2)">
+              <svg class="ic" sc-camel-view-box="0 0 24 24" style="color: var(--t3)"><circle cx="11" cy="11" r="6.5"></circle><path d="m20 20-4.2-4.2"></path></svg>
+              <label for="s-q" class="g" style="display: flex"><input id="s-q" placeholder="Search customers, conversations, promises…" style="border: 0; outline: 0; background: transparent; font: inherit; font-size: 15px; color: var(--t1); width: 100%"></label>
+              <span class="kbd">⌘K</span>
+            </div>
+            <button class="btn g" style="color: var(--t1)">Cancel</button>
+          </div>
+          <div class="col">
+            <div class="cap" style="margin-bottom: 4px">Try asking</div>
+            <button class="li" style="appearance: none; border: 0; background: transparent; font: inherit; text-align: left; padding: 0; color: var(--t1)"><span class="lg" style="background: var(--acc-s); color: var(--acc-t)"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg></span><span class="t g">Customers waiting for quotation</span></button>
+            <div class="sep" style="margin-left: 46px"></div>
+            <button class="li" style="appearance: none; border: 0; background: transparent; font: inherit; text-align: left; padding: 0; color: var(--t1)"><span class="lg" style="background: var(--acc-s); color: var(--acc-t)"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg></span><span class="t g">People I haven’t contacted this week</span></button>
+            <div class="sep" style="margin-left: 46px"></div>
+            <button class="li" style="appearance: none; border: 0; background: transparent; font: inherit; text-align: left; padding: 0; color: var(--t1)"><span class="lg" style="background: var(--acc-s); color: var(--acc-t)"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg></span><span class="t g">Show Rahul’s last conversation</span></button>
+          </div>
+          <div class="col">
+            <div class="cap" style="margin-bottom: 4px">Recent</div>
+            <div class="li"><div class="av a1 sm">RS</div><span class="t g">Rahul Sharma</span><span class="m">Customer</span></div>
+            <div class="sep" style="margin-left: 44px"></div>
+            <div class="li"><span class="lg" style="width: 30px; height: 30px"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path d="M7 3.5h6.5L18 8v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z"></path><path d="M13 3.5V8h5"></path></svg></span><span class="t g">Q-0142 · <span class="mono">₹62,000</span></span><span class="m">Quotation</span></div>
+            <div class="sep" style="margin-left: 44px"></div>
+            <div class="li"><span class="lg" style="width: 30px; height: 30px"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><circle cx="11" cy="11" r="6.5"></circle><path d="m20 20-4.2-4.2"></path></svg></span><span class="t g">“delivery after 6 pm”</span><span class="m">Search</span></div>
+          </div>
+          <div class="col" style="gap: 10px">
+            <div class="cap">Jump to</div>
+            <div class="row" style="gap: 8px">
+              <button class="btn s sm" style="flex: 1"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><circle cx="12" cy="12" r="8.5"></circle><circle cx="12" cy="12" r="4.5"></circle></svg>Radar</button>
+              <button class="btn s sm" style="flex: 1"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5.5 11a6.5 6.5 0 0 0 13 0"></path></svg>Voice</button>
+              <button class="btn s sm" style="flex: 1"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg>Customer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 19 NL results -->
+    <div class="shot">
+      <div class="sl"><span class="sn">19</span>Natural-language results</div>
+      <div class="phone">
+        <div class="scr" style="gap: 18px; padding-bottom: 120px">
+          <div class="row" style="gap: 6px">
+            <div class="sf" style="background: var(--card); border: 1px solid var(--line2)">
+              <svg class="ic ai" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>
+              <span class="t g" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">People I haven’t contacted this week</span>
+              <button class="ib" aria-label="Clear search" style="width: 32px; height: 32px; margin-right: -6px; color: var(--t3)"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+            </div>
+          </div>
+          <div class="row" style="gap: 8px; flex-wrap: wrap">
+            <span class="s">Understood as</span>
+            <span class="bdg a" style="height: 28px">No message or call since Mon 29 Sep</span>
+          </div>
+          <div class="row" style="justify-content: space-between"><h2 class="h2">5 customers</h2><span class="m">Sorted by value</span></div>
+          <div class="card col" style="padding: 0 16px">
+            <div class="li" style="min-height: 72px"><div class="av a3">AV</div><div class="g"><div class="t" style="font-weight: 550">Aman Verma</div><div class="m">6 days · <span class="mono">₹40,000</span> unpaid</div></div><button class="btn s sm">Message</button></div>
+            <div class="sep"></div>
+            <div class="li" style="min-height: 72px"><div class="av a5">AN</div><div class="g"><div class="t" style="font-weight: 550">Arjun Nair</div><div class="m ai">Usually reorders monthly — due now</div></div><button class="btn s sm">Message</button></div>
+            <div class="sep"></div>
+            <div class="li" style="min-height: 72px"><div class="av a6">MI</div><div class="g"><div class="t" style="font-weight: 550">Meera Iyer</div><div class="m">7 days · asked for catalogue</div></div><button class="btn s sm">Message</button></div>
+            <div class="sep"></div>
+            <div class="li" style="min-height: 72px"><div class="av a4">DK</div><div class="g"><div class="t" style="font-weight: 550">Dev Khanna</div><div class="m">9 days · last order Aug</div></div><button class="btn s sm">Message</button></div>
+            <div class="sep"></div>
+            <div class="li" style="min-height: 72px"><div class="av a2">KJ</div><div class="g"><div class="t" style="font-weight: 550">Kavya Joshi</div><div class="m">12 days · quote viewed twice</div></div><button class="btn s sm">Message</button></div>
+          </div>
+        </div>
+        <div class="fade" style="height: 150px"></div>
+        <div style="position: absolute; left: 16px; right: 16px; bottom: 30px">
+          <button class="btn a w" style="height: 54px; border-radius: 18px"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>Draft check-ins for all 5</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 20 Insights -->
+    <div class="shot">
+      <div class="sl"><span class="sn">20</span>Insights</div>
+      <div class="phone">
+        <div class="scr" style="gap: 20px">
+          <div class="row" style="justify-content: space-between; min-height: 44px">
+            <h2 class="h1">Insights</h2>
+            <span class="m">This month</span>
+          </div>
+          <div class="card col" style="padding: 18px; gap: 14px">
+            <div class="row" style="justify-content: space-between"><span class="h3">Business pulse</span><span class="bdg o"><span class="dot do"></span>Steady</span></div>
+            <div class="row" style="align-items: flex-end; justify-content: space-between">
+              <div class="col" style="gap: 2px"><span class="m">Customer response rate</span><span class="mono" style="font-size: 40px; line-height: 46px; font-weight: 500; letter-spacing: -.03em">72%</span><span class="s" style="color: var(--ok); font-weight: 550">↑ 8% vs September</span></div>
+              <div class="spark" style="width: 120px" role="img" aria-label="Response rate by week, rising from 58% to 72%">
+                <span style="height: 40%"></span><span style="height: 46%"></span><span style="height: 44%"></span><span style="height: 52%"></span><span style="height: 58%"></span><span style="height: 62%"></span><span style="height: 70%; background: var(--inv)"></span><span style="height: 78%; background: var(--inv)"></span>
+              </div>
+            </div>
+            <div class="sep"></div>
+            <div class="row" style="gap: 0">
+              <div class="col g" style="gap: 2px"><span class="m">Avg. reply time</span><span class="mono t" style="font-weight: 550">3.4 h</span></div>
+              <div class="col g" style="gap: 2px"><span class="m">Promises kept</span><span class="mono t" style="font-weight: 550">94%</span></div>
+              <div class="col g" style="gap: 2px"><span class="m">Collected</span><span class="mono t" style="font-weight: 550">₹3.1L</span></div>
+            </div>
+          </div>
+          <div class="aic col" style="gap: 10px">
+            <div class="row ai" style="gap: 8px; font-size: 13px; font-weight: 600"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>Nudge noticed</div>
+            <div class="t" style="font-size: 16px; line-height: 23px">Your fastest-converting customers usually receive a follow-up within 24 hours.</div>
+            <div class="m">Based on 61 quotes since July</div>
+            <div><button class="btn g" style="padding: 0">See who’s waiting now</button></div>
+          </div>
+          <div class="card" style="padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+            <div class="row"><span class="dot dw"></span><span class="cap" style="color: var(--warn)">At risk</span></div>
+            <div class="row"><div class="t g" style="font-weight: 550">3 customers haven’t received promised follow-ups.</div></div>
+            <button class="btn s w">Review</button>
+          </div>
+        </div>
+        <div class="fade"></div>
+        <div class="nav"><dc-import name="TabBar" active="insights" theme="light" hint-size="390px,88px"></dc-import></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:1458,&quot;height&quot;:1240}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+
+
+</body></html>

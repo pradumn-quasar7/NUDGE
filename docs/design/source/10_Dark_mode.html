@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Nudge — Dark mode</title>
+<script src="5c131054-7970-40e7-a04d-9d4aa26800bb"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style></style>
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#A6A3FF}a:hover{color:#C9C7FF}
+.k{--bg:#0B0B0E;--bg2:#1B1B21;--card:#16161B;--glass:rgba(30,30,37,.66);--glass-b:rgba(255,255,255,.09);--line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.13);--t1:#F3F3F5;--t2:#A6A6B0;--t3:#8E8E98;--acc:#7F7BFF;--on-acc:#0B0B14;--acc-t:#A6A3FF;--acc-s:rgba(127,123,255,.11);--acc-s2:rgba(127,123,255,.22);--ok:#6FD39C;--ok-d:#5BC48A;--ok-s:rgba(91,196,138,.13);--warn:#F0BE63;--warn-d:#E8B04F;--warn-s:rgba(232,176,79,.14);--bad:#F48A80;--bad-d:#F0786D;--bad-s:rgba(240,120,109,.13);--inv:#F3F3F5;--on-inv:#0B0B0E;--sh1:none;--sh2:0 14px 36px -14px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.03);--sh3:0 30px 70px -20px rgba(0,0,0,.85);--scrim:rgba(0,0,0,.55);--fade:rgba(11,11,14,0);font-family:'Geist',-apple-system,'SF Pro Text','Roboto',system-ui,sans-serif;color:var(--t1);-webkit-font-smoothing:antialiased}
+.board{padding:72px 80px;background:#050507;display:flex;flex-direction:column;gap:44px}
+.be{font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:var(--t3)}
+.bt{margin:0;font-size:44px;line-height:50px;font-weight:600;letter-spacing:-.035em}
+.bd{margin:0;font-size:17px;line-height:26px;color:var(--t2);max-width:900px}
+.phones{display:flex;gap:64px;align-items:flex-start}
+.shot{display:flex;flex-direction:column;gap:22px;flex:none}
+.sl{display:flex;gap:10px;align-items:baseline;font-size:15px;font-weight:550;padding-left:6px}
+.sn{font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;font-weight:400;color:var(--t3)}
+.phone{position:relative;width:390px;height:844px;border-radius:54px;overflow:hidden;background:var(--bg);color:var(--t1);flex:none;box-shadow:0 0 0 8px #1C1C21,0 0 0 9px #3A3A42,0 50px 90px -30px rgba(0,0,0,.9)}
+.scr{position:absolute;inset:0;padding:62px 20px 140px;display:flex;flex-direction:column;gap:24px;overflow:hidden}
+.nav{position:absolute;left:0;bottom:16px}
+.fade{position:absolute;left:0;right:0;bottom:0;height:200px;background:linear-gradient(var(--fade),var(--bg) 78%);pointer-events:none}
+.ask{position:absolute;left:16px;right:16px;bottom:112px;height:52px;border-radius:26px;display:flex;align-items:center;gap:10px;padding:0 6px 0 16px}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(170%);backdrop-filter:blur(24px) saturate(170%);border:1px solid var(--glass-b);box-shadow:var(--sh2)}
+.thick{position:absolute;inset:0;background:rgba(11,11,14,.72);-webkit-backdrop-filter:blur(36px) saturate(150%);backdrop-filter:blur(36px) saturate(150%)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--sh1)}
+.h1{margin:0;font-size:32px;line-height:38px;font-weight:600;letter-spacing:-.03em}
+.h2{margin:0;font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.022em}
+.h3{margin:0;font-size:17px;line-height:22px;font-weight:550;letter-spacing:-.012em}
+.t{font-size:15px;line-height:21px}
+.b{font-size:15px;line-height:22px;color:var(--t2)}
+.s{font-size:13.5px;line-height:19px;color:var(--t2)}
+.m{font-size:12.5px;line-height:16px;color:var(--t3)}
+.cap{font-size:12px;line-height:16px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;color:var(--t3)}
+.mono{font-family:'Geist Mono',ui-monospace,Menlo,monospace;font-feature-settings:'tnum'}
+.row{display:flex;align-items:center;gap:12px}
+.col{display:flex;flex-direction:column}
+.g{flex:1;min-width:0}
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.ic.sm{width:16px;height:16px}
+.fill{fill:currentColor;stroke:none}
+.btn{appearance:none;border:0;margin:0;font:inherit;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:14px;font-size:15px;font-weight:550;letter-spacing:-.005em;cursor:pointer;white-space:nowrap;text-decoration:none;color:var(--t1)}
+.btn.p{background:var(--inv);color:var(--on-inv)}
+.btn.a{background:var(--acc);color:var(--on-acc)}
+.btn.s{background:var(--card);border:1px solid var(--line2)}
+.btn.t{background:var(--acc-s);color:var(--acc-t)}
+.btn.g{background:transparent;color:var(--acc-t);padding:0 8px}
+.btn.w{width:100%}
+.ib{appearance:none;border:0;font:inherit;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--t1);padding:0;cursor:pointer;flex:none}
+.chip{appearance:none;font:inherit;display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 16px;border-radius:999px;font-size:14px;color:var(--t1);background:var(--card);border:1px solid var(--line2);cursor:pointer;white-space:nowrap}
+.bdg{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:550;white-space:nowrap}
+.bdg.w{background:var(--warn-s);color:var(--warn)}.bdg.o{background:var(--ok-s);color:var(--ok)}.bdg.a{background:var(--acc-s);color:var(--acc-t)}.bdg.n{background:var(--bg2);color:var(--t2)}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.dw{background:var(--warn-d)}.do{background:var(--ok-d)}.da{background:var(--acc)}
+.av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex:none;letter-spacing:-.01em}
+.av.sm{width:30px;height:30px;font-size:11px}
+.av.lg{width:72px;height:72px;font-size:25px}
+.a1{background:rgba(127,123,255,.2);color:#C3C1FF}.a2{background:rgba(232,176,79,.18);color:#F2C980}.a3{background:rgba(91,196,138,.18);color:#94DDB5}.a5{background:rgba(110,168,230,.18);color:#A9CCF2}.a6{background:rgba(190,140,230,.18);color:#D8B9F0}
+.sep{height:1px;background:var(--line);flex:none}
+.ai{color:var(--acc-t)}
+.aic{border-radius:22px;padding:18px;background:linear-gradient(160deg,var(--acc-s2),var(--acc-s) 45%,rgba(22,22,27,0) 80%),var(--card);border:1px solid rgba(127,123,255,.18);box-shadow:var(--sh2)}
+.q{background:var(--bg2);border-radius:12px;padding:10px 12px;font-size:13.5px;line-height:19px;color:var(--t2)}
+.top{display:flex;align-items:center;justify-content:space-between;min-height:44px;margin:0 -10px}
+.stack{display:flex}
+.stack .av{box-shadow:0 0 0 2px var(--card)}
+.stack .av + .av{margin-left:-8px}
+.unread{width:8px;height:8px;border-radius:50%;background:var(--acc);flex:none}
+.scrim{position:absolute;inset:0;background:var(--scrim)}
+.sheet{position:absolute;left:8px;right:8px;bottom:8px;border-radius:44px;padding:10px 20px 24px;display:flex;flex-direction:column;gap:18px}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--line2);align-self:center}
+.qa{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1}
+.qa .ib{background:var(--card);border:1px solid var(--line2);width:52px;height:52px}
+.ring{position:absolute;border-radius:50%;border:1px solid var(--line2)}
+.blip{position:absolute;width:12px;height:12px;border-radius:50%;box-shadow:0 0 0 3px var(--bg)}
+.tile{appearance:none;font:inherit;color:var(--t1);display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:16px;height:104px;padding:14px;border-radius:22px;background:var(--card);border:1px solid var(--line);cursor:pointer;text-align:left}
+.ti{width:38px;height:38px;border-radius:12px;background:var(--bg2);display:flex;align-items:center;justify-content:center}
+.under{position:absolute;inset:0;padding:62px 20px;display:flex;flex-direction:column;gap:22px}
+</style>
+</helmet>
+<div class="k board" style="width: 2366px; height: 1240px">
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <div class="be">10 · Dark mode</div>
+    <h1 class="bt">The same calm, after hours</h1>
+    <p class="bd">Near-black ground, surfaces lifted by tone not shadow, a brighter indigo for AI. Status colours lighten so dot + word stay readable at 4.5:1. Primary actions invert to white.</p>
+  </div>
+  <div class="phones">
+
+    <!-- Dark Home -->
+    <div class="shot">
+      <div class="sl"><span class="sn">D·07</span>Home · urgent</div>
+      <div class="phone">
+        <div class="scr" style="gap: 22px">
+          <div class="top">
+            <button class="ib" aria-label="Search"><svg class="ic" sc-camel-view-box="0 0 24 24"><circle cx="11" cy="11" r="6.5"></circle><path d="m20 20-4.2-4.2"></path></svg></button>
+            <div class="row" style="gap: 2px">
+              <button class="ib" aria-label="Notifications, 2 new" style="position: relative"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"></path><path d="M10 20.5a2 2 0 0 0 4 0"></path></svg><span class="unread" style="position: absolute; top: 10px; right: 11px; box-shadow: 0 0 0 2px var(--bg)"></span></button>
+              <button class="ib" aria-label="Your profile"><span class="av a5 sm">A</span></button>
+            </div>
+          </div>
+          <div class="col" style="gap: 10px">
+            <h2 class="h1" style="font-size: 34px; line-height: 40px">Good evening, Alex.</h2>
+            <div class="row" style="gap: 8px"><span class="dot dw"></span><span class="s" style="color: var(--t1); font-weight: 500">3 things need your attention</span></div>
+          </div>
+          <div class="card" style="padding: 18px; display: flex; flex-direction: column; gap: 14px">
+            <div class="row" style="justify-content: space-between"><span class="cap" style="color: var(--warn)">Priority</span><span class="m">Promised yesterday</span></div>
+            <div class="row" style="gap: 14px"><div class="av a1">RS</div><div class="g"><div class="h3">Rahul needs a quotation</div><div class="m" style="margin-top: 3px">50 × 4-tier rack · revised pricing</div></div></div>
+            <div class="q">“Yeah, I’ll send the updated quote tomorrow.” <span class="m">— you, Mon</span></div>
+            <div class="row" style="gap: 8px"><button class="btn p" style="flex: 1">Send quotation</button><button class="btn s" aria-label="More options" style="width: 44px; padding: 0"><svg class="ic" sc-camel-view-box="0 0 24 24"><circle class="fill" cx="5.5" cy="12" r="1.5"></circle><circle class="fill" cx="12" cy="12" r="1.5"></circle><circle class="fill" cx="18.5" cy="12" r="1.5"></circle></svg></button></div>
+          </div>
+          <div class="card" style="padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+            <div class="row"><div class="g"><div class="h3">4 customers waiting for a reply</div><div class="m" style="margin-top: 3px">Oldest: Priya, 2 days</div></div><div class="stack"><div class="av a2 sm">PM</div><div class="av a3 sm">AV</div><div class="av a6 sm">SQ</div></div></div>
+            <button class="btn t w">Review</button>
+          </div>
+        </div>
+        <div class="fade"></div>
+        <div class="ask glass">
+          <svg class="ic ai" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>
+          <span class="g" style="font-size: 15px; color: var(--t3)">Ask about your business…</span>
+          <button class="ib" aria-label="Ask by voice" style="width: 40px; height: 40px"><svg class="ic" sc-camel-view-box="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"></path></svg></button>
+        </div>
+        <div class="nav"><dc-import name="TabBar" active="home" theme="dark" hint-size="390px,88px"></dc-import></div>
+      </div>
+    </div>
+
+    <!-- Dark Customer profile -->
+    <div class="shot">
+      <div class="sl"><span class="sn">D·09</span>Customer profile</div>
+      <div class="phone">
+        <div class="scr" style="gap: 22px; padding-bottom: 110px">
+          <div class="top">
+            <button class="ib" aria-label="Back to customers"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="m14.5 6-6 6 6 6"></path></svg></button>
+            <button class="ib" aria-label="More options"><svg class="ic" sc-camel-view-box="0 0 24 24"><circle class="fill" cx="5.5" cy="12" r="1.5"></circle><circle class="fill" cx="12" cy="12" r="1.5"></circle><circle class="fill" cx="18.5" cy="12" r="1.5"></circle></svg></button>
+          </div>
+          <div class="row" style="gap: 16px">
+            <div class="av a1 lg">RS</div>
+            <div class="col" style="gap: 4px"><h2 class="h2" style="font-size: 26px; line-height: 32px">Rahul Sharma</h2><div class="m">Sharma Retail · customer since March 2026</div><div class="row" style="gap: 8px; margin-top: 4px"><span class="mono t" style="font-weight: 550">₹84,500</span><span class="m">lifetime value</span></div></div>
+          </div>
+          <div class="row" style="gap: 8px">
+            <div class="qa"><button class="ib" aria-label="Message Rahul"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M20 11.5a8 8 0 0 1-11.8 7L4 19.5l1.1-4A8 8 0 1 1 20 11.5z"></path></svg></button><span class="m">Message</span></div>
+            <div class="qa"><button class="ib" aria-label="Call Rahul"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M5 4h3.5l1.5 4-2 1.5a11 11 0 0 0 6.5 6.5l1.5-2 4 1.5V19a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"></path></svg></button><span class="m">Call</span></div>
+            <div class="qa"><button class="ib" aria-label="Create quotation"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M7 3.5h6.5L18 8v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z"></path><path d="M13 3.5V8h5M9 13h6M9 16.5h4"></path></svg></button><span class="m">Quote</span></div>
+            <div class="qa"><button class="ib" aria-label="Add note"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"></path></svg></button><span class="m">Note</span></div>
+          </div>
+          <div class="row" style="gap: 12px">
+            <span class="s" style="color: var(--t1); font-weight: 550">Relationship</span>
+            <div class="row g" style="gap: 3px" aria-hidden="true"><span style="flex: 1; height: 6px; border-radius: 3px; background: var(--ok-d)"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: var(--ok-d)"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: var(--ok-d)"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: var(--ok-d)"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: var(--line2)"></span></div>
+            <span class="s" style="color: var(--ok); font-weight: 550">Healthy</span>
+          </div>
+          <div class="aic col" style="gap: 10px">
+            <div class="row ai" style="gap: 8px; font-size: 13px; font-weight: 600"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>What matters</div>
+            <div class="t" style="line-height: 22px">Rahul usually prefers WhatsApp and typically responds within 1–2 days. He is currently evaluating the premium package.</div>
+          </div>
+          <div class="card col" style="padding: 2px 16px">
+            <div class="row" style="min-height: 60px"><span class="dot dw"></span><div class="g"><div class="t">Send revised quotation</div><div class="m">Due today</div></div><span class="bdg w">At risk</span></div>
+            <div class="sep"></div>
+            <div class="row" style="min-height: 60px"><span class="dot do"></span><div class="g"><div class="t">Share installation slots</div><div class="m">Due Fri</div></div><span class="bdg o">On track</span></div>
+          </div>
+        </div>
+        <div class="fade" style="height: 140px"></div>
+        <div class="glass" style="position: absolute; left: 16px; right: 16px; bottom: 30px; height: 56px; border-radius: 28px; display: flex; align-items: center; gap: 10px; padding: 0 6px 0 18px">
+          <svg class="ic ai" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>
+          <span class="g" style="font-size: 15px; color: var(--t3)">Ask about Rahul…</span>
+          <button class="ib" aria-label="Ask by voice"><svg class="ic" sc-camel-view-box="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"></path></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dark Promise Radar -->
+    <div class="shot">
+      <div class="sl"><span class="sn">D·13</span>Promise Radar</div>
+      <div class="phone">
+        <div class="scr" style="gap: 20px">
+          <div class="top">
+            <button class="ib" aria-label="Back"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="m14.5 6-6 6 6 6"></path></svg></button>
+            <button class="ib" aria-label="Add a promise"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg></button>
+          </div>
+          <div class="row" style="gap: 20px">
+            <div class="col g" style="gap: 8px"><h2 class="h1">Promise Radar</h2><div class="s"><span style="color: var(--t1); font-weight: 550">3 commitments</span> need attention</div></div>
+            <div style="position: relative; width: 104px; height: 104px; flex: none" role="img" aria-label="Radar: 2 due today near the centre">
+              <div style="position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 300deg, rgba(127,123,255,.24), rgba(127,123,255,0) 22%)"></div>
+              <div class="ring" style="inset: 0"></div><div class="ring" style="inset: 18px"></div><div class="ring" style="inset: 36px"></div>
+              <div class="blip" style="left: 48px; top: 36px; background: var(--warn-d)"></div>
+              <div class="blip" style="left: 60px; top: 54px; background: var(--warn-d); width: 10px; height: 10px"></div>
+              <div class="blip" style="left: 22px; top: 62px; background: var(--ok-d); width: 9px; height: 9px"></div>
+              <div class="blip" style="left: 78px; top: 28px; background: var(--ok-d); width: 9px; height: 9px"></div>
+            </div>
+          </div>
+          <div class="card" style="padding: 18px; display: flex; flex-direction: column; gap: 12px">
+            <div class="row" style="justify-content: space-between"><div class="row" style="gap: 10px"><div class="av a1 sm">RS</div><span class="s" style="color: var(--t1); font-weight: 550">Rahul Sharma</span></div><span class="bdg w"><span class="dot dw"></span>At risk</span></div>
+            <div class="col" style="gap: 3px"><div class="h3">Send revised quotation</div><div class="m">Due today</div></div>
+            <div class="q">“Yeah, I’ll send the updated quote tomorrow.” <span class="m">· WhatsApp, Mon</span></div>
+            <div class="row" style="gap: 8px"><button class="btn p" style="flex: 1">Complete</button><button class="btn s" style="flex: 1">Snooze</button></div>
+          </div>
+          <div class="card col" style="padding: 2px 18px">
+            <div class="row" style="min-height: 68px; gap: 14px"><div class="av a3 sm">AV</div><div class="g"><div class="t" style="font-weight: 550">Send payment link to Aman</div><div class="m">Due today</div></div><span class="bdg w"><span class="dot dw"></span>At risk</span></div>
+            <div class="sep"></div>
+            <div class="row" style="min-height: 68px; gap: 14px"><div class="av a2 sm">PM</div><div class="g"><div class="t" style="font-weight: 550">Call Priya regarding delivery</div><div class="m">Due tomorrow</div></div><span class="bdg o"><span class="dot do"></span>On track</span></div>
+          </div>
+        </div>
+        <div class="fade"></div>
+        <div class="nav"><dc-import name="TabBar" active="inbox" theme="dark" hint-size="390px,88px"></dc-import></div>
+      </div>
+    </div>
+
+    <!-- Dark Copilot -->
+    <div class="shot">
+      <div class="sl"><span class="sn">D·10</span>AI copilot</div>
+      <div class="phone">
+        <div class="under" aria-hidden="true"><div style="height: 44px"></div><div class="h1">Good evening, Alex.</div><div class="card" style="height: 200px"></div><div class="card" style="height: 120px; background: #1E1D3A"></div></div>
+        <div class="thick"></div>
+        <div class="scr" style="padding-bottom: 30px; gap: 22px">
+          <div class="row" style="justify-content: flex-end; margin-right: -10px"><button class="ib" aria-label="Close copilot"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"></path></svg></button></div>
+          <div style="align-self: flex-end; background: var(--inv); color: var(--on-inv); padding: 10px 14px; border-radius: 18px; border-bottom-right-radius: 6px; font-size: 15px">Summarize my day</div>
+          <div class="col" style="gap: 14px">
+            <div class="row ai" style="gap: 8px; font-size: 13px; font-weight: 600"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>Nudge</div>
+            <div class="t" style="font-size: 17px; line-height: 25px">A good day. You closed <strong style="font-weight: 600">Neha’s invoice</strong>, called Priya and kept 4 promises. One thing is still open: <strong style="font-weight: 600">Rahul’s quote</strong> — he’s usually online after 8 pm.</div>
+            <div class="card col" style="padding: 14px 16px; gap: 10px">
+              <div class="row" style="gap: 0"><div class="col g"><span class="mono" style="font-size: 22px; font-weight: 500">4</span><span class="m">promises kept</span></div><div class="col g"><span class="mono" style="font-size: 22px; font-weight: 500">₹18k</span><span class="m">collected</span></div><div class="col g"><span class="mono" style="font-size: 22px; font-weight: 500">1</span><span class="m">open</span></div></div>
+            </div>
+            <div class="row" style="gap: 8px"><button class="btn a" style="flex: 1"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>Draft Rahul’s quote</button><button class="btn s">Tomorrow</button></div>
+          </div>
+          <div class="row glass" style="height: 56px; border-radius: 28px; padding: 0 6px 0 18px; margin-top: auto">
+            <span class="g" style="font-size: 15px; color: var(--t3)">Ask a follow-up…</span>
+            <button class="ib" aria-label="Ask by voice" style="background: var(--inv); color: var(--on-inv)"><svg class="ic" sc-camel-view-box="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"></path></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dark Quick capture -->
+    <div class="shot">
+      <div class="sl"><span class="sn">D·15</span>Quick capture</div>
+      <div class="phone">
+        <div class="under" aria-hidden="true"><div style="height: 44px"></div><div class="h1">Good evening, Alex.</div><div class="card" style="height: 180px"></div><div class="card" style="height: 120px"></div></div>
+        <div class="scrim"></div>
+        <div class="sheet glass" style="box-shadow: var(--sh3)">
+          <div class="grab"></div>
+          <div class="row" style="justify-content: space-between">
+            <div class="col" style="gap: 2px"><h2 class="h2">Capture</h2><span class="m">Nudge files it to the right customer.</span></div>
+            <button class="ib" aria-label="Close" style="background: var(--bg2); margin-right: -4px"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+          </div>
+          <button class="tile" style="height: 76px; flex-direction: row; align-items: center; background: var(--inv); color: var(--on-inv); border: 0; width: 100%">
+            <span class="ti" style="background: rgba(11,11,14,.08)"><svg class="ic" sc-camel-view-box="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"></path></svg></span>
+            <span class="g col" style="gap: 2px"><span class="t" style="font-weight: 600">Voice note</span><span style="font-size: 12.5px; opacity: .65">Just talk — “Rahul wants 50 units…”</span></span>
+          </button>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+            <button class="tile"><span class="ti"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"></path></svg></span><span class="s" style="color: var(--t1); font-weight: 550">Quick note</span></button>
+            <button class="tile"><span class="ti"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.5-2h6l1.5 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"></path><circle cx="12" cy="13" r="3.5"></circle></svg></span><span class="s" style="color: var(--t1); font-weight: 550">Photo</span></button>
+            <button class="tile"><span class="ti"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M7 3.5h6.5L18 8v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z"></path><path d="M13 3.5V8h5"></path></svg></span><span class="s" style="color: var(--t1); font-weight: 550">Document</span></button>
+            <button class="tile"><span class="ti"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"></path><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg></span><span class="s" style="color: var(--t1); font-weight: 550">Link</span></button>
+            <button class="tile"><span class="ti"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M20 11.5a8 8 0 0 1-11.8 7L4 19.5l1.1-4A8 8 0 1 1 20 11.5z"></path></svg></span><span class="s" style="color: var(--t1); font-weight: 550">Conversation</span></button>
+            <button class="tile"><span class="ti"><svg class="ic" sc-camel-view-box="0 0 24 24"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 19.5c.8-3.3 3.4-5 6.5-5s5.7 1.7 6.5 5M19 8v6M16 11h6"></path></svg></span><span class="s" style="color: var(--t1); font-weight: 550">Customer</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:2366,&quot;height&quot;:1240}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+
+
+</body></html>

@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "Nudge",
+    "slug": "nudge",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.nudge.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#121217",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "app.nudge.mobile"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-font",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F5F4F0",
+          "dark": {
+            "backgroundColor": "#0B0B0E"
+          },
+          "image": "./assets/icon.png",
+          "imageWidth": 96
+        }
+      ]
+    ],
+    "scheme": "nudge",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

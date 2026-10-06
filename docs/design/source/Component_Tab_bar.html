@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Nudge — Tab bar</title>
+<script src="19028f0d-dac4-4094-b2fe-b583c5955be3"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style></style>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<nav aria-label="Primary" style="width: 390px; height: 88px; padding: 12px 16px; box-sizing: border-box; display: flex; gap: 10px; align-items: center; font-family: 'Geist', -apple-system, system-ui, sans-serif">
+  <div style="flex: 1; height: 64px; border-radius: 32px; display: flex; align-items: center; justify-content: space-around; padding: 0 6px; background: {{t.glass}}; -webkit-backdrop-filter: blur(24px) saturate(170%); backdrop-filter: blur(24px) saturate(170%); border: 1px solid {{t.edge}}; box-shadow: {{t.shadow}}">
+    <button aria-label="Home" style="appearance: none; border: 0; background: transparent; font: inherit; width: 52px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: {{c.home}}; cursor: pointer; padding: 0">
+      <svg sc-camel-view-box="0 0 24 24" style="width: 22px; height: 22px; fill: {{f.home}}; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round"><path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"></path></svg>
+      <span style="font-size: 10.5px; line-height: 12px; font-weight: {{w.home}}">Home</span>
+    </button>
+    <button aria-label="Customers" style="appearance: none; border: 0; background: transparent; font: inherit; width: 52px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: {{c.customers}}; cursor: pointer; padding: 0">
+      <svg sc-camel-view-box="0 0 24 24" style="width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 19.5c.8-3.3 3.4-5 6.5-5s5.7 1.7 6.5 5M16 4.8a3.3 3.3 0 0 1 0 6.4M18 14.6c1.8.6 3 2.2 3.5 4.9"></path></svg>
+      <span style="font-size: 10.5px; line-height: 12px; font-weight: {{w.customers}}">Customers</span>
+    </button>
+    <button aria-label="Inbox, 4 need reply" style="appearance: none; border: 0; background: transparent; font: inherit; width: 52px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: {{c.inbox}}; cursor: pointer; padding: 0; position: relative">
+      <svg sc-camel-view-box="0 0 24 24" style="width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round"><path d="M3.5 13.5 6 5.5a1.5 1.5 0 0 1 1.4-1h9.2a1.5 1.5 0 0 1 1.4 1l2.5 8v5a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5z"></path><path d="M3.5 13.5H8l1.5 2.5h5l1.5-2.5h4.5"></path></svg>
+      <span style="font-size: 10.5px; line-height: 12px; font-weight: {{w.inbox}}">Inbox</span>
+      <span style="position: absolute; top: 5px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: {{t.acc}}; box-shadow: 0 0 0 2px {{t.ring}}"></span>
+    </button>
+    <button aria-label="Insights" style="appearance: none; border: 0; background: transparent; font: inherit; width: 52px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: {{c.insights}}; cursor: pointer; padding: 0">
+      <svg sc-camel-view-box="0 0 24 24" style="width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round"><path d="M5 19v-6M12 19V5M19 19v-9"></path></svg>
+      <span style="font-size: 10.5px; line-height: 12px; font-weight: {{w.insights}}">Insights</span>
+    </button>
+    <button aria-label="More" style="appearance: none; border: 0; background: transparent; font: inherit; width: 52px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: {{c.more}}; cursor: pointer; padding: 0">
+      <svg sc-camel-view-box="0 0 24 24" style="width: 22px; height: 22px; fill: currentColor; stroke: none"><circle cx="5.5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="18.5" cy="12" r="1.6"></circle></svg>
+      <span style="font-size: 10.5px; line-height: 12px; font-weight: {{w.more}}">More</span>
+    </button>
+  </div>
+  <button aria-label="Capture" style="appearance: none; border: 0; font: inherit; width: 64px; height: 64px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; background: {{t.fab}}; color: {{t.fabInk}}; box-shadow: {{t.fabShadow}}">
+    <svg sc-camel-view-box="0 0 24 24" style="width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round"><path d="M12 5v14M5 12h14"></path></svg>
+  </button>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;active&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;customers&quot;,&quot;inbox&quot;,&quot;insights&quot;,&quot;more&quot;,&quot;none&quot;],&quot;default&quot;:&quot;home&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;},&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:88}}">
+class Component extends DCLogic {
+  renderVals() {
+    const active = this.props.active ?? 'home';
+    const dark = (this.props.theme ?? 'light') === 'dark';
+    const on = dark ? '#A6A3FF' : '#3E3AC8';
+    const off = dark ? '#8C8C96' : '#6A6A74';
+    const keys = ['home', 'customers', 'inbox', 'insights', 'more'];
+    const c = {}, w = {}, f = {};
+    keys.forEach((k) => {
+      c[k] = k === active ? on : off;
+      w[k] = k === active ? '600' : '500';
+      f[k] = k === active ? (dark ? 'rgba(127,123,255,.18)' : 'rgba(75,71,224,.12)') : 'none';
+    });
+    const t = dark ? {
+      glass: 'rgba(28,28,34,.72)', edge: 'rgba(255,255,255,.09)',
+      shadow: '0 18px 40px -12px rgba(0,0,0,.7)', acc: '#7F7BFF', ring: '#1C1C22',
+      fab: '#F3F3F5', fabInk: '#0B0B0E', fabShadow: '0 12px 28px -10px rgba(0,0,0,.8)'
+    } : {
+      glass: 'rgba(255,255,255,.72)', edge: 'rgba(255,255,255,.9)',
+      shadow: '0 18px 40px -14px rgba(20,20,28,.22), 0 0 0 1px rgba(20,20,28,.05)', acc: '#4B47E0', ring: '#FFFFFF',
+      fab: '#121217', fabInk: '#FFFFFF', fabShadow: '0 14px 30px -10px rgba(20,20,28,.45)'
+    };
+    return { c, w, f, t };
+  }
+}
+</script>
+
+
+</body></html>

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Nudge — Home</title>
+<script src="948740c0-b2d8-4298-9d33-7d3d9d98173e"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style></style>
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#3E3AC8}a:hover{color:#2B28A0}
+.k{--bg:#F5F4F0;--bg2:#ECEBE6;--card:#FFFFFF;--glass:rgba(255,255,255,.68);--glass-b:rgba(255,255,255,.85);--line:rgba(20,20,28,.07);--line2:rgba(20,20,28,.12);--t1:#121217;--t2:#52525C;--t3:#696973;--acc:#4B47E0;--on-acc:#FFFFFF;--acc-t:#3E3AC8;--acc-s:rgba(75,71,224,.07);--acc-s2:rgba(75,71,224,.14);--ok:#2C7A50;--ok-d:#3AA36B;--ok-s:rgba(58,163,107,.12);--warn:#94570B;--warn-d:#E09B32;--warn-s:rgba(224,155,50,.14);--bad:#B03A30;--bad-d:#D5554A;--bad-s:rgba(213,85,74,.10);--inv:#121217;--on-inv:#FFFFFF;--sh1:0 1px 2px rgba(20,20,28,.04);--sh2:0 12px 32px -14px rgba(20,20,28,.18),0 0 0 1px rgba(20,20,28,.04);--sh3:0 30px 70px -20px rgba(20,20,28,.3),0 6px 16px rgba(20,20,28,.06);--scrim:rgba(20,20,28,.22);--fade:rgba(245,244,240,0);font-family:'Geist',-apple-system,'SF Pro Text','Roboto',system-ui,sans-serif;color:var(--t1);-webkit-font-smoothing:antialiased}
+.board{padding:72px 80px;background:#E9E8E3;display:flex;flex-direction:column;gap:44px}
+.be{font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:var(--t3)}
+.bt{margin:0;font-size:44px;line-height:50px;font-weight:600;letter-spacing:-.035em}
+.bd{margin:0;font-size:17px;line-height:26px;color:var(--t2);max-width:900px}
+.phones{display:flex;gap:64px;align-items:flex-start}
+.shot{display:flex;flex-direction:column;gap:22px;flex:none}
+.sl{display:flex;gap:10px;align-items:baseline;font-size:15px;font-weight:550;padding-left:6px}
+.sn{font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;font-weight:400;color:var(--t3)}
+.phone{position:relative;width:390px;height:844px;border-radius:54px;overflow:hidden;background:var(--bg);color:var(--t1);flex:none;box-shadow:0 0 0 8px #18181C,0 0 0 9px #34343A,0 50px 90px -30px rgba(20,20,28,.4)}
+.scr{position:absolute;inset:0;padding:62px 20px 140px;display:flex;flex-direction:column;gap:24px;overflow:hidden}
+.nav{position:absolute;left:0;bottom:16px}
+.fade{position:absolute;left:0;right:0;bottom:0;height:200px;background:linear-gradient(var(--fade),var(--bg) 78%);pointer-events:none}
+.ask{position:absolute;left:16px;right:16px;bottom:112px;height:52px;border-radius:26px;display:flex;align-items:center;gap:10px;padding:0 6px 0 16px}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(170%);backdrop-filter:blur(24px) saturate(170%);border:1px solid var(--glass-b);box-shadow:var(--sh2)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--sh1)}
+.h1{margin:0;font-size:32px;line-height:38px;font-weight:600;letter-spacing:-.03em}
+.h2{margin:0;font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.022em}
+.h3{margin:0;font-size:17px;line-height:22px;font-weight:550;letter-spacing:-.012em}
+.t{font-size:15px;line-height:21px}
+.b{font-size:15px;line-height:22px;color:var(--t2)}
+.s{font-size:13.5px;line-height:19px;color:var(--t2)}
+.m{font-size:12.5px;line-height:16px;color:var(--t3)}
+.cap{font-size:12px;line-height:16px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;color:var(--t3)}
+.mono{font-family:'Geist Mono',ui-monospace,Menlo,monospace;font-feature-settings:'tnum'}
+.row{display:flex;align-items:center;gap:12px}
+.col{display:flex;flex-direction:column}
+.g{flex:1;min-width:0}
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.ic.sm{width:16px;height:16px}
+.fill{fill:currentColor;stroke:none}
+.btn{appearance:none;border:0;margin:0;font:inherit;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:14px;font-size:15px;font-weight:550;letter-spacing:-.005em;cursor:pointer;white-space:nowrap;text-decoration:none;color:var(--t1)}
+.btn.p{background:var(--inv);color:var(--on-inv)}
+.btn.a{background:var(--acc);color:var(--on-acc)}
+.btn.s{background:var(--card);border:1px solid var(--line2)}
+.btn.t{background:var(--acc-s);color:var(--acc-t)}
+.btn.q{background:var(--bg2)}
+.btn.g{background:transparent;color:var(--acc-t);padding:0 8px}
+.btn.w{width:100%}
+.ib{appearance:none;border:0;font:inherit;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--t1);padding:0;cursor:pointer;flex:none}
+.chip{appearance:none;font:inherit;display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 16px;border-radius:999px;font-size:14px;color:var(--t1);background:var(--card);border:1px solid var(--line2);cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--inv);color:var(--on-inv);border-color:transparent}
+.bdg{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:550;white-space:nowrap}
+.bdg.w{background:var(--warn-s);color:var(--warn)}.bdg.o{background:var(--ok-s);color:var(--ok)}.bdg.r{background:var(--bad-s);color:var(--bad)}.bdg.a{background:var(--acc-s);color:var(--acc-t)}.bdg.n{background:var(--bg2);color:var(--t2)}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.dw{background:var(--warn-d)}.do{background:var(--ok-d)}.dr{background:var(--bad-d)}.da{background:var(--acc)}.dn{background:var(--t3)}
+.av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex:none;letter-spacing:-.01em}
+.av.sm{width:30px;height:30px;font-size:11px}
+.a1{background:#E7E6FB;color:#3E3AC8}.a2{background:#F5E6D3;color:#86480E}.a3{background:#DCEEE3;color:#246A43}.a4{background:#F6DEDB;color:#9A3128}.a5{background:#DFE9F4;color:#285C88}.a6{background:#ECE4F2;color:#6A3D86}
+.sep{height:1px;background:var(--line);flex:none}
+.ai{color:var(--acc-t)}
+.aic{border-radius:22px;padding:18px;background:linear-gradient(160deg,var(--acc-s2),var(--acc-s) 45%,rgba(255,255,255,0) 80%),var(--glass);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border:1px solid var(--glass-b);box-shadow:var(--sh2)}
+.q{background:var(--bg2);border-radius:12px;padding:10px 12px;font-size:13.5px;line-height:19px;color:var(--t2)}
+.top{display:flex;align-items:center;justify-content:space-between;min-height:44px;margin:0 -10px}
+.stack{display:flex}
+.stack .av{box-shadow:0 0 0 2px var(--card)}
+.stack .av + .av{margin-left:-8px}
+.unread{width:8px;height:8px;border-radius:50%;background:var(--acc);flex:none}
+.bub{max-width:78%;padding:10px 14px;border-radius:20px;font-size:15px;line-height:21px}
+.bub.in{background:var(--card);border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:6px}
+.bub.out{background:var(--inv);color:var(--on-inv);align-self:flex-end;border-bottom-right-radius:6px}
+.scrim{position:absolute;inset:0;background:var(--scrim)}
+.sheet{position:absolute;left:8px;right:8px;bottom:8px;border-radius:44px;padding:10px 20px 26px;display:flex;flex-direction:column;gap:16px}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--line2);align-self:center}
+.ck{width:24px;height:24px;border-radius:7px;border:1.5px solid var(--line2);flex:none;display:flex;align-items:center;justify-content:center}
+.ck.on{background:var(--acc);border-color:var(--acc);color:#FFFFFF}
+</style>
+</helmet>
+<div class="k board" style="width: 1912px; height: 1240px">
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <div class="be">03 · Home</div>
+    <h1 class="bt">What do I need to know or do right now?</h1>
+    <p class="bd">Home is an assistant, not a dashboard. One status line, then only the cards that need a decision — each with the reason and a single action.</p>
+  </div>
+  <div class="phones">
+
+    <!-- 06 Home calm -->
+    <div class="shot">
+      <div class="sl"><span class="sn">06</span>Home · under control</div>
+      <div class="phone">
+        <div class="scr" style="gap: 28px">
+          <div class="top">
+            <button class="ib" aria-label="Search"><svg class="ic" sc-camel-view-box="0 0 24 24"><circle cx="11" cy="11" r="6.5"></circle><path d="m20 20-4.2-4.2"></path></svg></button>
+            <div class="row" style="gap: 2px">
+              <button class="ib" aria-label="Notifications"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"></path><path d="M10 20.5a2 2 0 0 0 4 0"></path></svg></button>
+              <button class="ib" aria-label="Your profile"><span class="av a5 sm">A</span></button>
+            </div>
+          </div>
+          <div class="col" style="gap: 10px">
+            <div class="m">Tuesday, 6 October</div>
+            <h2 class="h1" style="font-size: 34px; line-height: 40px">Good morning, Alex.</h2>
+            <div class="row" style="gap: 8px"><span class="dot do"></span><span class="s">Everything under control</span></div>
+          </div>
+          <div class="col" style="gap: 12px">
+            <div class="cap">Next up</div>
+            <div class="card" style="padding: 16px 16px 16px 18px; display: flex; align-items: center; gap: 14px">
+              <div class="av a2">PM</div>
+              <div class="g"><div class="h3">Call Priya about delivery</div><div class="m" style="margin-top: 3px">11:00 · you promised on Friday</div></div>
+              <button class="btn s" aria-label="Call Priya" style="width: 44px; padding: 0"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M5 4h3.5l1.5 4-2 1.5a11 11 0 0 0 6.5 6.5l1.5-2 4 1.5V19a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"></path></svg></button>
+            </div>
+          </div>
+          <div class="aic col" style="gap: 10px">
+            <div class="row ai" style="gap: 8px; font-size: 13px; font-weight: 600"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>Business insight</div>
+            <div class="t" style="font-size: 16px; line-height: 23px">Customers who receive a follow-up within 24 hours are converting <span class="mono" style="font-weight: 600">2.1×</span> more often.</div>
+            <div><button class="btn g" style="padding: 0">Explore</button></div>
+          </div>
+          <div class="col" style="gap: 4px">
+            <div class="cap" style="margin-bottom: 6px">Remembered overnight</div>
+            <div class="row" style="min-height: 56px"><div class="av a3 sm">AV</div><div class="g s" style="color: var(--t1)">Aman needs 50 units by the 28th</div><span class="m">8:12</span></div>
+            <div class="sep"></div>
+            <div class="row" style="min-height: 56px"><div class="av a4 sm">NK</div><div class="g s" style="color: var(--t1)">Neha paid <span class="mono">₹18,000</span></div><span class="m">7:40</span></div>
+          </div>
+        </div>
+        <div class="fade"></div>
+        <div class="ask glass">
+          <svg class="ic ai" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>
+          <span class="g" style="font-size: 15px; color: var(--t3)">Ask about your business…</span>
+          <button class="ib" aria-label="Ask by voice" style="width: 40px; height: 40px"><svg class="ic" sc-camel-view-box="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"></path></svg></button>
+        </div>
+        <div class="nav"><dc-import name="TabBar" active="home" theme="light" hint-size="390px,88px"></dc-import></div>
+      </div>
+    </div>
+
+    <!-- 07 Home urgent -->
+    <div class="shot">
+      <div class="sl"><span class="sn">07</span>Home · urgent actions</div>
+      <div class="phone">
+        <div class="scr" style="gap: 22px">
+          <div class="top">
+            <button class="ib" aria-label="Search"><svg class="ic" sc-camel-view-box="0 0 24 24"><circle cx="11" cy="11" r="6.5"></circle><path d="m20 20-4.2-4.2"></path></svg></button>
+            <div class="row" style="gap: 2px">
+              <button class="ib" aria-label="Notifications, 2 new" style="position: relative"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"></path><path d="M10 20.5a2 2 0 0 0 4 0"></path></svg><span class="unread" style="position: absolute; top: 10px; right: 11px; box-shadow: 0 0 0 2px var(--bg)"></span></button>
+              <button class="ib" aria-label="Your profile"><span class="av a5 sm">A</span></button>
+            </div>
+          </div>
+          <div class="col" style="gap: 10px">
+            <h2 class="h1" style="font-size: 34px; line-height: 40px">Good morning, Alex.</h2>
+            <div class="row" style="gap: 8px"><span class="dot dw"></span><span class="s" style="color: var(--t1); font-weight: 500">3 things need your attention</span></div>
+          </div>
+
+          <div class="card" style="padding: 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: var(--sh2)">
+            <div class="row" style="justify-content: space-between"><span class="cap" style="color: var(--warn)">Priority</span><span class="m">Promised yesterday</span></div>
+            <div class="row" style="gap: 14px">
+              <div class="av a1">RS</div>
+              <div class="g"><div class="h3">Rahul needs a quotation</div><div class="m" style="margin-top: 3px">50 × 4-tier rack · revised pricing</div></div>
+            </div>
+            <div class="q">“Yeah, I’ll send the updated quote tomorrow.” <span class="m">— you, Mon</span></div>
+            <div class="row" style="gap: 8px">
+              <button class="btn p" style="flex: 1">Send quotation</button>
+              <button class="btn s" aria-label="More options" style="width: 44px; padding: 0"><svg class="ic" sc-camel-view-box="0 0 24 24"><circle class="fill" cx="5.5" cy="12" r="1.5"></circle><circle class="fill" cx="12" cy="12" r="1.5"></circle><circle class="fill" cx="18.5" cy="12" r="1.5"></circle></svg></button>
+            </div>
+          </div>
+
+          <div class="card" style="padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+            <div class="row">
+              <div class="g"><div class="h3">4 customers waiting for a reply</div><div class="m" style="margin-top: 3px">Oldest: Priya, 2 days</div></div>
+              <div class="stack"><div class="av a2 sm">PM</div><div class="av a3 sm">AV</div><div class="av a6 sm">SQ</div></div>
+            </div>
+            <div class="row" style="justify-content: space-between">
+              <span class="s">Priya — delivery date · Aman — payment link</span>
+            </div>
+            <button class="btn t w">Review</button>
+          </div>
+
+          <div class="card" style="padding: 16px 18px; display: flex; align-items: center; gap: 14px">
+            <div style="width: 40px; height: 40px; border-radius: 12px; background: var(--warn-s); color: var(--warn); display: flex; align-items: center; justify-content: center; flex: none"><svg class="ic" sc-camel-view-box="0 0 24 24"><circle cx="12" cy="12" r="8.5"></circle><circle cx="12" cy="12" r="4.5"></circle><circle class="fill" cx="12" cy="12" r="1.3"></circle></svg></div>
+            <div class="g"><div class="t" style="font-weight: 550">2 promises may be missed today</div><div class="m" style="margin-top: 2px">Promise Radar</div></div>
+            <button class="ib" aria-label="View promises" style="color: var(--t3)"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="m9.5 6 6 6-6 6"></path></svg></button>
+          </div>
+        </div>
+        <div class="fade"></div>
+        <div class="ask glass">
+          <svg class="ic ai" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>
+          <span class="g" style="font-size: 15px; color: var(--t3)">Ask about your business…</span>
+          <button class="ib" aria-label="Ask by voice" style="width: 40px; height: 40px"><svg class="ic" sc-camel-view-box="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"></path></svg></button>
+        </div>
+        <div class="nav"><dc-import name="TabBar" active="home" theme="light" hint-size="390px,88px"></dc-import></div>
+      </div>
+    </div>
+
+    <!-- 21 Notifications -->
+    <div class="shot">
+      <div class="sl"><span class="sn">21</span>Notifications</div>
+      <div class="phone">
+        <div class="scr" style="gap: 20px; padding-bottom: 40px">
+          <div class="top">
+            <button class="ib" aria-label="Back"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="m14.5 6-6 6 6 6"></path></svg></button>
+            <button class="btn g">Mark all read</button>
+          </div>
+          <h2 class="h1">Notifications</h2>
+          <div class="col">
+            <div class="cap" style="margin-bottom: 4px">Today</div>
+            <div class="row" style="align-items: flex-start; gap: 14px; padding: 14px 0">
+              <div class="av a1">RS</div>
+              <div class="g col" style="gap: 4px"><div class="t"><strong style="font-weight: 600">Rahul</strong> accepted the revised quote</div><div class="m">WhatsApp · 9:14</div>
+                <div class="row" style="gap: 8px; margin-top: 8px"><button class="btn p" style="height: 44px; font-size: 14px">Create invoice</button><button class="btn s" style="height: 44px; font-size: 14px">Reply</button></div>
+              </div>
+              <span class="unread" style="margin-top: 6px"></span>
+            </div>
+            <div class="sep"></div>
+            <div class="row" style="align-items: flex-start; gap: 14px; padding: 14px 0">
+              <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--warn-s); color: var(--warn); display: flex; align-items: center; justify-content: center; flex: none"><svg class="ic" sc-camel-view-box="0 0 24 24"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg></div>
+              <div class="g col" style="gap: 4px"><div class="t">Promise due in 2 hours: <strong style="font-weight: 600">call Priya about delivery</strong></div><div class="m">Promise Radar · 9:00</div></div>
+              <span class="unread" style="margin-top: 6px"></span>
+            </div>
+            <div class="sep"></div>
+            <div class="row" style="align-items: flex-start; gap: 14px; padding: 14px 0">
+              <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--acc-s); color: var(--acc-t); display: flex; align-items: center; justify-content: center; flex: none"><svg class="ic" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg></div>
+              <div class="g col" style="gap: 4px"><div class="t">I noticed 2 new commitments in yesterday’s chats</div><div class="m">Waiting for your confirmation · 7:02</div></div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="cap" style="margin-bottom: 4px">Earlier</div>
+            <div class="row" style="align-items: flex-start; gap: 14px; padding: 14px 0">
+              <div class="av a4">NK</div>
+              <div class="g col" style="gap: 4px"><div class="t" style="color: var(--t2)">Neha paid <span class="mono">₹18,000</span> · INV-0087 settled</div><div class="m">Mon</div></div>
+            </div>
+            <div class="sep"></div>
+            <div class="row" style="align-items: flex-start; gap: 14px; padding: 14px 0">
+              <div class="av a6">SQ</div>
+              <div class="g col" style="gap: 4px"><div class="t" style="color: var(--t2)">Sana completed “Measure Store 4”</div><div class="m">Mon</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 17 AI extraction -->
+    <div class="shot">
+      <div class="sl"><span class="sn">17</span>AI extraction confirmation</div>
+      <div class="phone">
+        <div class="scr" style="gap: 14px; padding-bottom: 20px">
+          <div class="top" style="margin-bottom: 4px">
+            <button class="ib" aria-label="Back"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="m14.5 6-6 6 6 6"></path></svg></button>
+            <div class="row" style="gap: 10px"><div class="av a1 sm">RS</div><div class="col"><span class="t" style="font-weight: 600">Rahul Sharma</span><span class="m">WhatsApp</span></div></div>
+            <button class="ib" aria-label="Call Rahul"><svg class="ic" sc-camel-view-box="0 0 24 24"><path d="M5 4h3.5l1.5 4-2 1.5a11 11 0 0 0 6.5 6.5l1.5-2 4 1.5V19a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"></path></svg></button>
+          </div>
+          <div class="m" style="text-align: center">Yesterday</div>
+          <div class="bub in">Can you do 50 units of the 4-tier rack? Need them before Diwali.</div>
+          <div class="bub in">Also the price from last time was a bit high.</div>
+          <div class="bub out">Yes, possible. I’ll send the updated quote tomorrow.</div>
+          <div class="m" style="text-align: right">6:42 pm</div>
+        </div>
+        <div class="scrim"></div>
+        <div class="sheet glass" style="box-shadow: var(--sh3)">
+          <div class="grab"></div>
+          <div class="row ai" style="gap: 8px; font-size: 13px; font-weight: 600"><svg class="ic sm" sc-camel-view-box="0 0 24 24"><path class="fill" d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"></path></svg>I noticed a commitment</div>
+          <div class="h3" style="font-size: 20px; line-height: 26px">“Send revised quotation to Rahul tomorrow.”</div>
+          <div class="card col" style="padding: 4px 14px; box-shadow: none">
+            <div class="row" style="min-height: 48px"><span class="m" style="width: 86px">Due</span><span class="t g">Today, Tue 6 Oct</span><button class="btn g" style="height: 44px">Edit</button></div>
+            <div class="sep"></div>
+            <div class="row" style="min-height: 52px"><span class="ck on"><svg class="ic sm" sc-camel-view-box="0 0 24 24" style="width: 14px; height: 14px; stroke-width: 2.4"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span><span class="t g">Requirement · 50 × 4-tier rack</span></div>
+            <div class="sep"></div>
+            <div class="row" style="min-height: 52px"><span class="ck on"><svg class="ic sm" sc-camel-view-box="0 0 24 24" style="width: 14px; height: 14px; stroke-width: 2.4"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span><span class="t g">Deadline · before Diwali</span></div>
+            <div class="sep"></div>
+            <div class="row" style="min-height: 52px"><span class="ck"></span><span class="t g" style="color: var(--t2)">Note · finds price high</span></div>
+          </div>
+          <div class="m">From your reply at 6:42 pm. Nothing is saved until you confirm.</div>
+          <div class="row" style="gap: 8px">
+            <button class="btn a" style="flex: 1; height: 52px; border-radius: 16px">Add to Promise Radar</button>
+            <button class="btn s" style="height: 52px; border-radius: 16px">Ignore</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:1912,&quot;height&quot;:1240}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+
+
+</body></html>
