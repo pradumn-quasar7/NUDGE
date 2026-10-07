@@ -14,6 +14,9 @@ import { timingSafeEqual, timingSafeEqualBytes } from "../_shared/auth.ts";
 import { env, serviceClient } from "../_shared/supabase.ts";
 import type { EventKind } from "../_shared/types.ts";
 
+// Provided by the Supabase Edge Runtime; newer typings no longer declare it globally.
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
+
 const FN = "whatsapp-webhook";
 const MAX_BODY_BYTES = 1_000_000;
 const encoder = new TextEncoder();

@@ -1,7 +1,7 @@
 // "What did I promise?" — authenticated natural-language search over business memory.
 //
 //   mobile → JWT + membership check → retrieval (as the user, through RLS)
-//          → Claude answers ONLY from the supplied records, may call two typed
+//          → Gemini or Claude answers ONLY from the supplied records, may call two typed
 //            read-only tools, and returns a structured answer citing record refs
 //          → refs are validated and mapped back to ids → CopilotAnswer + evidence
 //
@@ -24,6 +24,7 @@ import {
   parseJsonOutput,
   type TokenUsage,
 } from "../_shared/anthropic.ts";
+import { aiProvider, geminiGatherWithTools, geminiJson, geminiModel } from "../_shared/gemini.ts";
 import { requireMembership, requireUser, UUID_RE } from "../_shared/auth.ts";
 import { errorResponse, HttpError, json, preflight } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabase.ts";
@@ -535,48 +536,83 @@ Deno.serve(async (req) => {
     let final: ModelAnswer | null = null;
     let failure: string | null = null;
 
-    for (let round = 0; round <= MAX_TOOL_ROUNDS && !final && !failure; round++) {
-      const lastRound = round === MAX_TOOL_ROUNDS;
-      let response: Anthropic.Beta.BetaMessage;
-      try {
-        response = await anthropic().beta.messages.create({
-          model: CLAUDE_MODEL,
-          max_tokens: 16000,
-          betas: [FALLBACK_BETA],
-          fallbacks: "default",
-          output_config: { effort: "medium", format: ANSWER_FORMAT },
-          system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-          tools: TOOLS,
-          // After the tool budget is spent, the model must answer from what it has.
-          tool_choice: lastRound ? { type: "none" } : { type: "auto" },
-          messages,
+    if (aiProvider() === "gemini") {
+      // Gemini: gather with read-only function calls, then one structured-output call for the answer.
+      const userText = messages[0].content as string;
+      servedBy = geminiModel();
+      const gathered = await geminiGatherWithTools({
+        system: SYSTEM_PROMPT,
+        contents: [{ role: "user", parts: [{ text: userText }] }],
+        tools: TOOLS.map((t) => ({ name: t.name, description: t.description ?? "", parametersJsonSchema: t.input_schema as Record<string, unknown> })),
+        maxRounds: MAX_TOOL_ROUNDS,
+        run: async (name, args) => {
+          const r = await runTool(ctx, { type: "tool_use", id: "gemini", name, input: args } as Anthropic.Beta.BetaToolUseBlock);
+          return { ok: !r.is_error, content: typeof r.content === "string" ? r.content : JSON.stringify(r.content) };
+        },
+      });
+      usage = { input: usage.input + gathered.usage.input, output: usage.output + gathered.usage.output, cacheRead: usage.cacheRead + gathered.usage.cacheRead };
+      if (gathered.rejected) failure = `refusal:${gathered.rejected.toLowerCase()}`;
+      else if (gathered.error) failure = gathered.error.code;
+      else {
+        const withTools = gathered.toolResults.length
+          ? `${userText}\n\n<tool_results>\n${gathered.toolResults.join("\n\n")}\n</tool_results>`
+          : userText;
+        const r = await geminiJson({
+          system: SYSTEM_PROMPT,
+          contents: [{ role: "user", parts: [{ text: `${withTools}\n\nAnswer now, using only the records above.` }] }],
+          schema: AnswerSchema,
+          maxTokens: 8000,
+          thinking: "low",
         });
-      } catch (err) {
-        const info = describeClaudeError(err);
-        failure = info.code;
-        console.error(`[${FN}] model call failed: ${info.code}`);
-        break;
+        usage = { input: usage.input + r.usage.input, output: usage.output + r.usage.output, cacheRead: usage.cacheRead + r.usage.cacheRead };
+        servedBy = r.model;
+        if (r.status === "ok") final = r.data;
+        else failure = r.status === "rejected" ? `refusal:${r.error}` : r.error;
       }
-      usage = addUsage(usage, response.usage);
-      servedBy = response.model;
+    } else {
+      for (let round = 0; round <= MAX_TOOL_ROUNDS && !final && !failure; round++) {
+        const lastRound = round === MAX_TOOL_ROUNDS;
+        let response: Anthropic.Beta.BetaMessage;
+        try {
+          response = await anthropic().beta.messages.create({
+            model: CLAUDE_MODEL,
+            max_tokens: 16000,
+            betas: [FALLBACK_BETA],
+            fallbacks: "default",
+            output_config: { effort: "medium", format: ANSWER_FORMAT },
+            system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+            tools: TOOLS,
+            // After the tool budget is spent, the model must answer from what it has.
+            tool_choice: lastRound ? { type: "none" } : { type: "auto" },
+            messages,
+          });
+        } catch (err) {
+          const info = describeClaudeError(err);
+          failure = info.code;
+          console.error(`[${FN}] model call failed: ${info.code}`);
+          break;
+        }
+        usage = addUsage(usage, response.usage);
+        servedBy = response.model;
 
-      if (response.stop_reason === "refusal") {
-        failure = `refusal:${response.stop_details?.category ?? "unspecified"}`;
-        break;
+        if (response.stop_reason === "refusal") {
+          failure = `refusal:${response.stop_details?.category ?? "unspecified"}`;
+          break;
+        }
+        if (response.stop_reason === "tool_use") {
+          const toolUses = response.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use");
+          messages.push({ role: "assistant", content: response.content });
+          // All results go back in ONE user message.
+          messages.push({ role: "user", content: await Promise.all(toolUses.map((b) => runTool(ctx, b))) });
+          continue;
+        }
+        if (response.stop_reason === "max_tokens") {
+          failure = "max_tokens";
+          break;
+        }
+        final = parseJsonOutput(AnswerSchema, response);
+        if (!final) failure = "invalid_output";
       }
-      if (response.stop_reason === "tool_use") {
-        const toolUses = response.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use");
-        messages.push({ role: "assistant", content: response.content });
-        // All results go back in ONE user message.
-        messages.push({ role: "user", content: await Promise.all(toolUses.map((b) => runTool(ctx, b))) });
-        continue;
-      }
-      if (response.stop_reason === "max_tokens") {
-        failure = "max_tokens";
-        break;
-      }
-      final = parseJsonOutput(AnswerSchema, response);
-      if (!final) failure = "invalid_output";
     }
 
     const result = final

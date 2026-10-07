@@ -1,6 +1,6 @@
 // AI extraction pipeline for one raw event:
 //
-//   raw event → normalization → extraction (Claude, structured output)
+//   raw event → normalization → extraction (Gemini or Claude, structured output)
 //             → validation → memory write (customer_facts, annotations)
 //             → commitment detection (extractions, status = pending) → notification
 //
@@ -22,6 +22,7 @@ import {
   jsonOutputFormat,
   parseJsonOutput,
 } from "../_shared/anthropic.ts";
+import { aiProvider, geminiJson, geminiModel } from "../_shared/gemini.ts";
 import { requireServiceRole, UUID_RE } from "../_shared/auth.ts";
 import { errorResponse, HttpError, json } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabase.ts";
@@ -38,6 +39,7 @@ import type {
 
 const FN = "ai-extract";
 const PROMPT_VERSION = "extract-v1";
+const activeModel = () => (aiProvider() === "gemini" ? geminiModel() : CLAUDE_MODEL);
 const CONTEXT_EVENTS = 20;
 const MAX_CONTEXT_BODY = 1_000;
 const MAX_TARGET_BODY = 20_000;
@@ -373,7 +375,7 @@ async function runExtraction(eventId: string, force: boolean): Promise<RunResult
       .insert({
         org_id: event.org_id,
         stage: "extraction",
-        model: CLAUDE_MODEL,
+        model: activeModel(),
         prompt_version: PROMPT_VERSION,
         input_event_ids: [event.id],
         status: "skipped",
@@ -489,7 +491,7 @@ async function runExtraction(eventId: string, force: boolean): Promise<RunResult
     .insert({
       org_id: event.org_id,
       stage: "extraction",
-      model: CLAUDE_MODEL,
+      model: activeModel(),
       prompt_version: PROMPT_VERSION,
       // Only the target event: "already processed" checks look for it here.
       // Context events are recorded in output.context_event_ids.
@@ -508,45 +510,65 @@ async function runExtraction(eventId: string, force: boolean): Promise<RunResult
       .eq("id", runId);
   };
 
-  // 5. Extraction (Claude)
-  let response: Anthropic.Beta.BetaMessage;
-  try {
-    response = await anthropic().beta.messages.create({
-      model: CLAUDE_MODEL,
-      max_tokens: 16000,
-      betas: [FALLBACK_BETA],
-      fallbacks: "default",
-      output_config: { effort: "medium", format: EXTRACTION_FORMAT },
-      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-      messages: [{ role: "user", content: userPrompt }],
+  // 5. Extraction — Gemini or Claude (see _shared/gemini.ts aiProvider()), same schema either way.
+  let output: ExtractionOutput;
+  let usage: { input_tokens: number; output_tokens: number; cache_read_tokens: number; model: string };
+  if (aiProvider() === "gemini") {
+    const r = await geminiJson({
+      system: SYSTEM_PROMPT,
+      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+      schema: ExtractionSchema,
+      maxTokens: 16000,
+      thinking: "medium",
     });
-  } catch (err) {
-    const info = describeClaudeError(err);
-    await finish({ status: "failed", error: info.code });
-    console.error(`[${FN}] run ${runId} failed: ${info.code}`);
-    return { status: "failed", ai_run_id: runId, error: info.code, retryable: info.retryable };
-  }
+    usage = { input_tokens: r.usage.input, output_tokens: r.usage.output, cache_read_tokens: r.usage.cacheRead, model: r.model };
+    if (r.status !== "ok") {
+      await finish({ ...usage, status: r.status, error: r.error });
+      if (r.status === "failed" && r.retryable) console.error(`[${FN}] run ${runId} failed: ${r.error}`);
+      return { status: r.status, ai_run_id: runId, error: r.error, ...(r.status === "failed" ? { retryable: r.retryable } : {}) };
+    }
+    output = r.data;
+  } else {
+    let response: Anthropic.Beta.BetaMessage;
+    try {
+      response = await anthropic().beta.messages.create({
+        model: CLAUDE_MODEL,
+        max_tokens: 16000,
+        betas: [FALLBACK_BETA],
+        fallbacks: "default",
+        output_config: { effort: "medium", format: EXTRACTION_FORMAT },
+        system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+        messages: [{ role: "user", content: userPrompt }],
+      });
+    } catch (err) {
+      const info = describeClaudeError(err);
+      await finish({ status: "failed", error: info.code });
+      console.error(`[${FN}] run ${runId} failed: ${info.code}`);
+      return { status: "failed", ai_run_id: runId, error: info.code, retryable: info.retryable };
+    }
 
-  const usage = {
-    input_tokens: response.usage.input_tokens,
-    output_tokens: response.usage.output_tokens,
-    cache_read_tokens: response.usage.cache_read_input_tokens ?? 0,
-    model: response.model, // differs from CLAUDE_MODEL when a fallback model answered
-  };
+    usage = {
+      input_tokens: response.usage.input_tokens,
+      output_tokens: response.usage.output_tokens,
+      cache_read_tokens: response.usage.cache_read_input_tokens ?? 0,
+      model: response.model, // differs from CLAUDE_MODEL when a fallback model answered
+    };
 
-  if (response.stop_reason === "refusal") {
-    const reason = `refusal:${response.stop_details?.category ?? "unspecified"}`;
-    await finish({ ...usage, status: "rejected", error: reason });
-    return { status: "rejected", ai_run_id: runId, error: reason };
-  }
-  if (response.stop_reason === "max_tokens") {
-    await finish({ ...usage, status: "failed", error: "max_tokens" });
-    return { status: "failed", ai_run_id: runId, error: "max_tokens" };
-  }
-  const output = parseJsonOutput(ExtractionSchema, response);
-  if (!output) {
-    await finish({ ...usage, status: "failed", error: "invalid_output" });
-    return { status: "failed", ai_run_id: runId, error: "invalid_output" };
+    if (response.stop_reason === "refusal") {
+      const reason = `refusal:${response.stop_details?.category ?? "unspecified"}`;
+      await finish({ ...usage, status: "rejected", error: reason });
+      return { status: "rejected", ai_run_id: runId, error: reason };
+    }
+    if (response.stop_reason === "max_tokens") {
+      await finish({ ...usage, status: "failed", error: "max_tokens" });
+      return { status: "failed", ai_run_id: runId, error: "max_tokens" };
+    }
+    const parsed = parseJsonOutput(ExtractionSchema, response);
+    if (!parsed) {
+      await finish({ ...usage, status: "failed", error: "invalid_output" });
+      return { status: "failed", ai_run_id: runId, error: "invalid_output" };
+    }
+    output = parsed;
   }
 
   // 6. Validation

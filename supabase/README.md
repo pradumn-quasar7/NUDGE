@@ -278,3 +278,15 @@ streamed — on a `notifications` / `notification_reads` change, re-select from 
 - Per-user rate limits on `copilot`.
 - Retry for `ai-extract` calls that pg_net could not deliver (see `net._http_response`).
 - Replace the hand-written row types with `supabase gen types typescript`.
+
+## AI provider: Gemini or Claude
+
+Both `ai-extract` and `copilot` run on **Google Gemini** when the `GEMINI_API_KEY` secret is set, otherwise on
+Claude (`ANTHROPIC_API_KEY`). Force one with `AI_PROVIDER=gemini|anthropic`; pick the Gemini model with
+`GEMINI_MODEL` (default `gemini-3.8-flash`). Outputs use JSON-schema constrained responses and are validated
+again with Zod; the copilot's read-only tools are offered as Gemini function declarations, and the final answer
+comes from a separate structured-output call. See `functions/_shared/gemini.ts`.
+
+```bash
+read -s "GK?Gemini API key: " && supabase secrets set GEMINI_API_KEY="$GK" && unset GK
+```
