@@ -82,3 +82,19 @@ verify_jwt = true
 # Voice note transcription: called by the app with the user's JWT (verified by the gateway and again in code).
 [functions.transcribe]
 verify_jwt = true
+
+# Message drafts (quote follow-ups, replies): called by the app with the user's JWT (verified by the gateway and again in code).
+[functions.draft-message]
+verify_jwt = true
+
+# Customer memory summary: called by public.queue_customer_summary() (pg_net) with the service-role key, checked in code.
+[functions.summarize-customer]
+verify_jwt = false
+
+# Customer handoff brief: called by the app with the user's JWT (verified by the gateway and again in code).
+[functions.handoff-brief]
+verify_jwt = true
+
+# Internal: drains storage_purge_queue (purge_customer / delete_workspace via pg_net, hourly pg_cron) with the service-role key, checked in code.
+[functions.storage-purge]
+verify_jwt = false

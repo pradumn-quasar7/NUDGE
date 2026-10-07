@@ -21,8 +21,9 @@ import {
   geminiModel,
 } from "../_shared/gemini.ts";
 import { requireMembership, requireUser, UUID_RE } from "../_shared/auth.ts";
-import { errorResponse, HttpError, json, preflight } from "../_shared/cors.ts";
+import { HttpError, json, preflight } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabase.ts";
+import { enforceAiQuota, errorResponseWithRetry } from "../_shared/ratelimit.ts";
 import { checkVoicePath, cleanTranscript } from "./path.ts";
 
 const FN = "transcribe";
@@ -78,6 +79,8 @@ Deno.serve(async (req) => {
     if (!checked.ok) throw new HttpError(403, "path_not_allowed");
 
     if (aiProvider() !== "gemini") return json({ error: "transcription_unavailable" }, 501);
+    // Per-member + workspace AI quota (429 rate_limited + Retry-After), before the download and model call.
+    await enforceAiQuota(db, orgId, "transcribe");
 
     // Service client: the bucket is private and the path is already scoped to the caller.
     const { data: blob, error: downloadError } = await serviceClient().storage.from(BUCKET).download(path);
@@ -121,6 +124,6 @@ Deno.serve(async (req) => {
     }
     return json({ transcript, language, aiRunId: run?.id ?? null });
   } catch (err) {
-    return errorResponse(FN, err);
+    return errorResponseWithRetry(FN, err);
   }
 });

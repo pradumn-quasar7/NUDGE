@@ -1,8 +1,7 @@
 import { useState, type ReactNode } from 'react';
-import { ScrollView, TextInput, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { router } from 'expo-router';
 import {
-  AiLabel,
   Avatar,
   Button,
   CheckCircle,
@@ -13,23 +12,20 @@ import {
   IconButton,
   LargeTitle,
   Num,
-  Quote,
   Screen,
   Sep,
   Tap,
   Txt,
-  useSheetClose,
-  useToast,
-  webNoOutline,
   type ButtonVariant,
 } from '@/components';
-import { commitmentRisk, customerById, customerCommitments, lastInbound, openCommitments, riskBadge } from '@/data/selectors';
-import { useStore, type AppState } from '@/data/store';
+import { commitmentRisk, customerById, customerCommitments, openCommitments, riskBadge } from '@/data/selectors';
+import { useStore } from '@/data/store';
 import type { Commitment, InboxBucket, InboxItem } from '@/data/types';
-import { ago, dayDiff, firstName, inr, shortDay, time12 } from '@/lib/format';
-import { SheetModal, useCompletePromise } from '@/features/promises';
+import { ago, dayDiff, inr, shortDay, time12 } from '@/lib/format';
+import { useCompletePromise } from '@/features/promises';
+import { DraftSheet, type DraftTarget } from '@/features/drafts';
+import { intentFor } from '@/lib/draft';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts } from '@/theme/tokens';
 import { useNow } from '@/lib/useNow';
 
 const BUCKETS: { key: InboxBucket; label: string }[] = [
@@ -46,62 +42,29 @@ const EMPTY: Record<InboxBucket, { title: string; body: string }> = {
   done: { title: 'Nothing done yet', body: 'Replies you send and links you share from the inbox collect here.' },
 };
 
-/** Confirmation copy for one-tap actions. */
-function doneText(label: string, name: string) {
-  const first = firstName(name);
-  switch (label.toLowerCase()) {
-    case 'send link':
-      return `Payment link sent to ${first}`;
-    case 'share':
-      return `Shared with ${first}`;
-    case 'nudge':
-      return `Nudge sent to ${first}`;
-    case 'check in':
-      return `Checked in with ${first}`;
-    case 'follow up':
-      return `Followed up with ${first}`;
-    default:
-      return `Done · ${first}`;
-  }
-}
-
-/** On-device stand-in for the AI reply draft: built from the open promise for this customer. */
-function draftReply(s: AppState, item: InboxItem, now = Date.now()) {
-  const cust = customerById(s, item.customerId);
-  const first = firstName(cust?.name ?? '');
-  const p = customerCommitments(s, item.customerId)[0];
-  if (!p) return `Hi ${first}, thanks for your message — I’ll get back to you on this today.`;
-  const action = p.title
-    .replace(new RegExp(`\\b${first}\\b`, 'g'), 'you')
-    .replace(/ to you$/, '')
-    .replace(/^./, (ch) => ch.toLowerCase());
-  const d = dayDiff(p.dueAt, now);
-  const when = d === 0 ? `today at ${time12(p.dueAt)}` : d === 1 ? `tomorrow at ${time12(p.dueAt)}` : `on ${shortDay(p.dueAt, now)}`;
-  return `Hi ${first}, thanks for checking. I’ll ${action} ${when}.`;
-}
-
 /** 12 · Inbox — every row reads Who → What → Why it matters → What to do. */
 export default function Inbox() {
-  const { state, actions } = useStore();
-  const toast = useToast();
+  const { state } = useStore();
   const complete = useCompletePromise();
   const [bucket, setBucket] = useState<InboxBucket>('needs_reply');
-  const [reviewing, setReviewing] = useState<InboxItem | null>(null);
+  const [drafting, setDrafting] = useState<DraftTarget | null>(null);
   const now = useNow();
   const promises = openCommitments(state);
   const items = state.inbox.filter((i) => i.bucket === bucket).sort((a, b) => b.at - a.at);
   const count = (b: InboxBucket) => (b === 'promises' ? promises.length : state.inbox.filter((i) => i.bucket === b).length);
 
+  // Every inbox action reaches out to a customer, so it starts from an editable draft — nothing is
+  // sent or marked done until the person sends it from their own app and confirms (principle 6).
   const act = (item: InboxItem) => {
-    const name = customerById(state, item.customerId)?.name ?? '';
-    const label = item.action.label.toLowerCase();
-    if (label === 'send now') {
-      const p = customerCommitments(state, item.customerId)[0];
-      if (p) return router.push(`/promise/${p.id}`);
-    }
-    if (label === 'review') return setReviewing(item);
-    actions.resolveInbox(item.id, { title: `${item.action.label.replace(/^Send /, 'Sent ')} · ${item.what.toLowerCase()}` });
-    toast({ text: doneText(item.action.label, name), icon: 'check' });
+    const p = customerCommitments(state, item.customerId)[0];
+    const relevant = p && intentFor(p) === intentFor(null, item) ? p : item.bucket === 'needs_reply' ? p : undefined;
+    setDrafting({
+      customerId: item.customerId,
+      suggestionId: item.id,
+      commitmentId: relevant?.id,
+      intent: intentFor(relevant, item),
+      amount: item.amount,
+    });
   };
 
   const empty = bucket === 'promises' ? promises.length === 0 : items.length === 0;
@@ -152,9 +115,7 @@ export default function Inbox() {
         </View>
       )}
 
-      <SheetModal visible={!!reviewing} onClose={() => setReviewing(null)}>
-        {reviewing && <ReviewDraft item={reviewing} />}
-      </SheetModal>
+      <DraftSheet target={drafting} onClose={() => setDrafting(null)} />
     </Screen>
   );
 }
@@ -274,54 +235,5 @@ function PromiseItem({ commitment: p, now, onComplete }: { commitment: Commitmen
       onPress={() => router.push(`/promise/${p.id}`)}
       action={<Button size="sm" variant="secondary" label="Complete" onPress={onComplete} style={{ paddingHorizontal: 14, borderRadius: 12 }} />}
     />
-  );
-}
-
-/** The AI-drafted reply, shown with the message it answers. Nothing is sent until you tap Send. */
-function ReviewDraft({ item }: { item: InboxItem }) {
-  const { state, actions } = useStore();
-  const { c } = useTheme();
-  const toast = useToast();
-  const close = useSheetClose();
-  const cust = customerById(state, item.customerId);
-  const asked = lastInbound(state, item.customerId);
-  const [text, setText] = useState(() => draftReply(state, item));
-  const first = firstName(cust?.name ?? '');
-  return (
-    <View style={{ gap: 14, paddingTop: 4 }}>
-      <AiLabel>{item.whyAi ? item.why : 'Reply drafted'}</AiLabel>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Avatar name={cust?.name ?? '?'} size={30} />
-        <View style={{ flex: 1 }}>
-          <Txt weight="semibold">{cust?.name}</Txt>
-          <Txt variant="meta">{item.what}</Txt>
-        </View>
-      </View>
-      {asked?.body ? <Quote by={`· ${ago(asked.at)}`}>{`“${asked.body}”`}</Quote> : null}
-      <View style={{ backgroundColor: c.card, borderRadius: 16, borderWidth: 1, borderColor: c.line2, paddingHorizontal: 14, paddingVertical: 12 }}>
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          multiline
-          accessibilityLabel="Reply draft"
-          style={[{ fontFamily: fonts.regular, fontSize: 15.5, lineHeight: 22, color: c.t1, minHeight: 88, textAlignVertical: 'top' }, webNoOutline]}
-        />
-      </View>
-      <Txt variant="meta">Edit anything before sending. Nothing goes out until you tap Send.</Txt>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <Button
-          label="Send reply"
-          size="lg"
-          flex
-          disabled={!text.trim()}
-          onPress={() => {
-            actions.resolveInbox(item.id, { title: 'You replied', body: text.trim() });
-            toast({ text: `Reply sent to ${first}`, icon: 'check' });
-            close();
-          }}
-        />
-        <Button label="Later" size="lg" variant="secondary" onPress={close} />
-      </View>
-    </View>
   );
 }

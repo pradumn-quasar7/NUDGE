@@ -50,7 +50,8 @@ export default function More() {
             valueTone={paused ? 'warn' : undefined}
             onPress={() => router.push('/integrations')}
           />
-          <SettingsRow icon="card" title="Billing" value={state.org.plan === 'pro' ? 'Pro' : 'Free'} onPress={() => router.push('/billing')} last />
+          <SettingsRow icon="card" title="Billing" value={state.org.plan === 'pro' ? 'Pro' : 'Free'} onPress={() => router.push('/billing')} last={me.role !== 'owner'} />
+          {me.role === 'owner' && <SettingsRow icon="clock" title="Activity" onPress={() => router.push('/activity')} last />}
         </Group>
       </View>
 

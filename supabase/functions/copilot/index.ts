@@ -26,8 +26,9 @@ import {
 } from "../_shared/anthropic.ts";
 import { aiProvider, geminiGatherWithTools, geminiJson, geminiModel } from "../_shared/gemini.ts";
 import { requireMembership, requireUser, UUID_RE } from "../_shared/auth.ts";
-import { errorResponse, HttpError, json, preflight } from "../_shared/cors.ts";
+import { HttpError, json, preflight } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabase.ts";
+import { enforceAiQuota, errorResponseWithRetry } from "../_shared/ratelimit.ts";
 import { isValidTimeZone, localStamp } from "../_shared/time.ts";
 import type {
   CommitmentRow,
@@ -497,7 +498,8 @@ Deno.serve(async (req) => {
     if (scopeId && !UUID_RE.test(scopeId)) throw new HttpError(400, "invalid_customer_id");
 
     const me = await requireMembership(db, user.id, orgId);
-    // TODO: per-member rate limit (e.g. 30 questions / 10 min) before calling the model.
+    // Per-member + workspace AI quota (429 rate_limited + Retry-After; the app answers on-device then).
+    await enforceAiQuota(db, orgId, "copilot");
 
     const [{ data: org, error: orgError }, { data: memberRows }] = await Promise.all([
       db.from("organizations").select("id, name, sells, timezone, settings").eq("id", orgId).single<OrgRow>(),
@@ -655,6 +657,6 @@ Deno.serve(async (req) => {
     const response: CopilotResponse = { ...result.answer, evidenceEventIds: result.evidenceEventIds, aiRunId: run?.id ?? null };
     return json(response);
   } catch (err) {
-    return errorResponse(FN, err);
+    return errorResponseWithRetry(FN, err);
   }
 });

@@ -1,10 +1,12 @@
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { View, type StyleProp, type TextStyle } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { Avatar, Button, Card, Dot, Icon, Num, Sep, Tap, Txt, useToast, type ButtonVariant, type Tone } from '@/components';
 import { useStore } from '@/data/store';
 import { customerById } from '@/data/selectors';
 import type { CopilotAnswer, CopilotRow } from '@/lib/ai';
+import { DraftSheet, type DraftTarget } from '@/features/drafts';
+import { intentFor, type DraftIntent } from '@/lib/draft';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/tokens';
 
@@ -188,15 +190,45 @@ export function AnswerView({
   onRowPress?: (row: CopilotRow) => void;
   footer?: ReactNode;
 }) {
+  const { state } = useStore();
+  const toast = useToast();
+  const [drafting, setDrafting] = useState<DraftTarget | null>(null);
+  // Default handling: "Draft …" AI actions open the draft sheet for the customer they are about.
+  const handle = (a: AnswerAction) => {
+    const target = a.kind === 'ai' && /^draft/i.test(a.label) ? draftTargetFor(a, answer, state) : null;
+    if (target) return setDrafting(target);
+    if (a.route) return router.push(a.route as Href);
+    toast({ text: 'Coming soon' });
+  };
   return (
     <View style={{ gap: 14 }} accessibilityLiveRegion="polite">
       {label && <NudgeLabel />}
       <AnswerLead text={answer.text} />
       {answer.rows && answer.rows.length > 0 && <AnswerRows rows={answer.rows} onRowPress={onRowPress} />}
       {answer.stats && answer.stats.length > 0 && <AnswerStats stats={answer.stats} />}
-      <AnswerActions actions={answer.actions} onAction={onAction} />
+      <AnswerActions actions={answer.actions} onAction={onAction ?? handle} />
       <Txt variant="meta">{answer.evidence}</Txt>
       {footer}
+      {!onAction && <DraftSheet target={drafting} onClose={() => setDrafting(null)} />}
     </View>
   );
+}
+
+/** Which customer (and promise) a "Draft …" action is about: its route, else the answer's first row. */
+function draftTargetFor(a: AnswerAction, answer: CopilotAnswer, state: ReturnType<typeof useStore>['state']): DraftTarget | null {
+  const promiseId = a.route?.match(/^\/promise\/([^/?#]+)/)?.[1];
+  const promise = promiseId ? state.commitments.find((p) => p.id === promiseId) : undefined;
+  const customerId = promise?.customerId ?? a.route?.match(/^\/customer\/([^/?#]+)/)?.[1] ?? answer.rows?.[0]?.customerId;
+  if (!customerId || !state.customers.some((c) => c.id === customerId)) return null;
+  const label = a.label.toLowerCase();
+  const intent: DraftIntent = promise
+    ? intentFor(promise)
+    : /quot/.test(label)
+      ? 'quote_follow_up'
+      : /check.?in|follow.?up/.test(label)
+        ? 'check_in'
+        : /payment|link/.test(label)
+          ? 'payment_reminder'
+          : 'reply';
+  return { customerId, commitmentId: promise?.id, intent };
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { router } from 'expo-router';
 import {
@@ -9,21 +9,27 @@ import {
   Button,
   Card,
   Dot,
+  Group,
   Icon,
   Num,
   Sep,
+  SettingsRow,
+  SparkPulse,
   Tap,
   Txt,
   useToast,
   type IconName,
 } from '@/components';
 import { useStore, type AppState } from '@/data/store';
+import { requestCustomerSummary } from '@/data/remote-memory';
+import { backendMode } from '@/data/session';
 import { commitmentRisk, customerCommitments, eventsFor, relationshipHealth, riskBadge } from '@/data/selectors';
 import type { Customer, ID } from '@/data/types';
 import { dueLabel, firstName, inr, monthYear, plural, shortDay } from '@/lib/format';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Timeline, timelineEntries } from './Timeline';
 import { useNow } from '@/lib/useNow';
+import { briefHref } from '@/lib/brief';
 
 /* ───────────── Helpers ───────────── */
 
@@ -120,27 +126,159 @@ export function RelationshipBar({ state, customerId }: { state: AppState; custom
 
 /* ───────────── What matters ───────────── */
 
-export function WhatMatters({ customer }: { customer: Customer }) {
+/** Customers whose first summary was already requested in this app session (auto-request once). */
+const autoRequested = new Set<ID>();
+const WAIT_MS = 20_000;
+
+/**
+ * "What matters" — the AI memory summary (summarize-customer). Refresh asks the server to re-read the
+ * customer (request_customer_summary, at most once per 2 minutes) and pulses until the store has a newer
+ * summary or 20 s pass. A customer with ≥ 2 events and no summary yet is requested automatically, once.
+ * Demo mode: the seeded summary stands; Refresh says it is up to date.
+ */
+export function WhatMatters({ customer, eventCount }: { customer: Customer; eventCount?: number }) {
+  const { state, reload } = useStore();
+  const events = eventCount ?? state.events.filter((e) => e.customerId === customer.id).length;
+  const toast = useToast();
+  const first = firstName(customer.name);
+  const cloud = backendMode === 'cloud' && !!state.org.id;
   const src = customer.summarySources;
+  const updatedAt = customer.summary ? (src?.updatedAt ?? 0) : 0;
+  // Waiting for a summary newer than `baseline` (cleared when the wait times out).
+  const [wait, setWait] = useState<{ baseline: number } | null>(null);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const clearTimers = () => {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+  };
+  useEffect(() => clearTimers, []);
+
+  const reading = !!wait && updatedAt <= wait.baseline;
+  useEffect(() => {
+    if (!reading) clearTimers(); // the new summary is here: stop polling
+  }, [reading]);
+
+  const request = useCallback(
+    async (auto: boolean) => {
+      if (!cloud) {
+        if (!auto) toast({ text: 'Up to date', icon: 'check' });
+        return;
+      }
+      const stop = (text?: string, icon?: 'check' | 'error') => {
+        clearTimers();
+        setWait(null);
+        if (text && !auto) toast({ text, icon });
+      };
+      setWait({ baseline: updatedAt });
+      clearTimers();
+      // Realtime usually delivers the new summary; poll as a fallback.
+      timers.current = [6_000, 12_000].map((ms) => setTimeout(() => void reload(), ms));
+      timers.current.push(
+        setTimeout(() => {
+          setWait(null);
+          void reload();
+        }, WAIT_MS),
+      );
+      try {
+        const r = await requestCustomerSummary(customer.id);
+        if (r.status === 'fresh') {
+          stop('Up to date', 'check');
+          void reload();
+        } else if (r.status === 'unavailable') {
+          stop('Couldn’t refresh right now', 'error');
+        }
+        // queued / pending: keep pulsing until the new summary arrives.
+      } catch {
+        stop('Couldn’t refresh right now', 'error');
+      }
+    },
+    [cloud, customer.id, reload, toast, updatedAt],
+  );
+
+  // First summary for a customer with some history: ask once, automatically.
+  const wantsFirst = cloud && !customer.summary && events >= 2 && !autoRequested.has(customer.id);
+  useEffect(() => {
+    if (!wantsFirst) return;
+    const t = setTimeout(() => {
+      autoRequested.add(customer.id);
+      void request(true);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [wantsFirst, customer.id, request]);
+
   const updated = src ? shortDay(src.updatedAt) : '';
   const when = updated === 'Today' || updated === 'Yesterday' ? updated.toLowerCase() : updated;
   const from = src
     ? [src.messages ? plural(src.messages, 'message') : '', src.calls ? plural(src.calls, 'call') : ''].filter(Boolean).join(' and ')
     : '';
+  const firstRead = !customer.summary && (reading || wantsFirst);
+
   return (
     <AiCard>
-      <AiLabel>What matters</AiLabel>
-      <Txt style={{ lineHeight: 22 }}>
-        {customer.summary ??
-          `Nudge is still getting to know ${firstName(customer.name)}. Add a note or connect WhatsApp and a summary will appear here.`}
-      </Txt>
-      {src && customer.summary ? (
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 24 }}>
+        <AiLabel>What matters</AiLabel>
+        {customer.summary && !reading ? (
+          <View style={{ marginVertical: -10, marginRight: -10 }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              label="Refresh"
+              accessibilityLabel={`Refresh what matters about ${first}`}
+              onPress={() => void request(false)}
+            />
+          </View>
+        ) : null}
+      </View>
+      {firstRead ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 }} accessibilityLiveRegion="polite">
+          <SparkPulse size={18} />
+          <Txt variant="s" tone="acc" style={{ flex: 1 }}>
+            Nudge is reading {first}’s conversations…
+          </Txt>
+        </View>
+      ) : (
+        <Txt style={{ lineHeight: 22, opacity: reading ? 0.6 : 1 }}>
+          {customer.summary ??
+            `Nudge is still getting to know ${first}. Add a note or connect WhatsApp and a summary will appear here.`}
+        </Txt>
+      )}
+      {reading && customer.summary ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }} accessibilityLiveRegion="polite">
+          <SparkPulse size={14} />
+          <Txt variant="meta" tone="acc">
+            Re-reading {first}’s memory…
+          </Txt>
+        </View>
+      ) : src && customer.summary ? (
         <Txt variant="meta">
           Updated {when}
           {from ? ` · from ${from}` : ''}
         </Txt>
       ) : null}
     </AiCard>
+  );
+}
+
+/* ───────────── Handoff brief + contact preferences ───────────── */
+
+export function CustomerLinks({ customer }: { customer: Customer }) {
+  const first = firstName(customer.name);
+  return (
+    <Group>
+      <SettingsRow
+        icon="userPlus"
+        title="Handoff brief"
+        subtitle={`What a teammate needs to take over ${first}`}
+        onPress={() => router.push(briefHref(customer.id))}
+      />
+      <SettingsRow
+        icon="sliders"
+        title="Contact preferences"
+        subtitle="Channel, quiet hours, opt-out"
+        last
+        onPress={() => router.push({ pathname: '/customer/[id]/contact', params: { id: customer.id } })}
+      />
+    </Group>
   );
 }
 
@@ -265,7 +403,7 @@ export function ProfileBody({ customerId, layout }: { customerId: ID; layout: 'p
         </View>
 
         <RelationshipBar state={state} customerId={customer.id} />
-        <WhatMatters customer={customer} />
+        <WhatMatters customer={customer} eventCount={events.length} />
         <OpenCommitments state={state} customer={customer} />
 
         <Card padding={0} onPress={() => router.push(`/customer/${customer.id}/memory`)} style={{ paddingHorizontal: 16 }}>
@@ -282,6 +420,8 @@ export function ProfileBody({ customerId, layout }: { customerId: ID; layout: 'p
             <Icon name="chevron" size={16} color={c.t3} />
           </View>
         </Card>
+
+        <CustomerLinks customer={customer} />
       </View>
     );
   }
@@ -321,9 +461,10 @@ export function ProfileBody({ customerId, layout }: { customerId: ID; layout: 'p
 
       <View style={{ flexDirection: twoCol ? 'row' : 'column', gap: 28, alignItems: 'flex-start' }}>
         <View style={{ flex: twoCol ? 1 : undefined, alignSelf: twoCol ? undefined : 'stretch', minWidth: 0, gap: 20 }}>
-          <WhatMatters customer={customer} />
+          <WhatMatters customer={customer} eventCount={events.length} />
           <OpenCommitments state={state} customer={customer} withQuote />
           <RelationshipBar state={state} customerId={customer.id} />
+          <CustomerLinks customer={customer} />
         </View>
         <View style={{ flex: twoCol ? 1 : undefined, alignSelf: twoCol ? undefined : 'stretch', minWidth: 0, gap: 10 }}>
           <Txt variant="h3" accessibilityRole="header">

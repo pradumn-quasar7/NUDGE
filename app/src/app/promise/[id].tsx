@@ -35,6 +35,8 @@ import {
 } from '@/features/promises';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useNow } from '@/lib/useNow';
+import { DraftSheet, type DraftTarget } from '@/features/drafts';
+import { intentFor } from '@/lib/draft';
 
 /** 14 · Promise detail — what was promised, to whom, by when, and the exact words it came from. */
 export default function PromiseDetail() {
@@ -45,6 +47,7 @@ export default function PromiseDetail() {
   const [snoozing, setSnoozing] = useState<Commitment | null>(null);
   const [handOff, setHandOff] = useState(false);
   const [options, setOptions] = useState(false);
+  const [drafting, setDrafting] = useState<DraftTarget | null>(null);
   const now = useNow();
   const p = state.commitments.find((x) => x.id === id);
 
@@ -104,12 +107,8 @@ export default function PromiseDetail() {
             label={draftLabel}
             flex
             style={{ height: 54, borderRadius: 18 }}
-            onPress={() =>
-              router.push({
-                pathname: '/copilot',
-                params: { q: `${draftLabel} for ${customer ? firstName(customer.name) : 'this customer'}` },
-              })
-            }
+            disabled={!customer}
+            onPress={() => customer && setDrafting({ customerId: customer.id, commitmentId: p.id, intent: intentFor(p) })}
           />
           <Button
             variant="secondary"
@@ -183,6 +182,7 @@ export default function PromiseDetail() {
         </AiCard>
       ) : null}
 
+      <DraftSheet target={drafting} onClose={() => setDrafting(null)} />
       <SnoozeSheet commitment={snoozing} onClose={() => setSnoozing(null)} />
       <HandOffSheet commitment={p} visible={handOff} onClose={() => setHandOff(false)} />
       <SheetModal visible={options} onClose={() => setOptions(false)}>

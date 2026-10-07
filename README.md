@@ -83,6 +83,12 @@ no email codes, so sign in with the seeded accounts as described in [dev/local-s
 **Also in Phase 4:** real voice notes (record → private `voice-notes` storage → Gemini transcription, Hinglish-aware),
 AI on Google Gemini (`gemini-3.8-flash`), "save as note" when a statement is typed into an ask box.
 
+**Phase 5:** customer summaries that write themselves (`summarize-customer`), handoff briefs (`handoff-brief`),
+AI drafts with one-tap WhatsApp/SMS/email hand-off and "Sent it?" confirmation (`draft-message`, `mark_draft_sent`),
+per-customer contact preferences, and hardening — AI quotas (`consume_ai_quota`), owner export/delete, purge of voice
+files, owner Activity log, suggestion-integrity guard. Gemini calls fall back to `gemini-3.5-flash-lite` when the
+primary model times out or is overloaded.
+
 **Next phase:** Firebase for Android push, custom SMTP (sign-in emails with codes, no rate limit), WhatsApp go-live.
 
 ## Principles the code enforces

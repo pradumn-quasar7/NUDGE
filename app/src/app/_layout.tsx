@@ -58,6 +58,7 @@ function Navigator({ fontsLoaded }: { fontsLoaded: boolean }) {
         <Stack.Screen name="voice" options={sheet} />
         <Stack.Screen name="extraction/[id]" options={sheet} />
         <Stack.Screen name="customer/[id]/ask" options={sheet} />
+        <Stack.Screen name="customer/[id]/brief" options={sheet} />
         <Stack.Screen name="copilot" options={{ presentation: 'modal', animation: 'fade' }} />
         <Stack.Screen name="search" options={{ animation: 'fade' }} />
       </Stack>

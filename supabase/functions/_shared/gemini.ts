@@ -68,33 +68,67 @@ export function describeGeminiError(err: unknown): GeminiErrorInfo {
   return { code: "unknown_error", retryable: false };
 }
 
-/** One generateContent call with bounded retries on 429/5xx (exponential backoff). Never logs content. */
-async function generate(body: Record<string, unknown>): Promise<GenerateResponse> {
-  const url = `${ENDPOINT}/${encodeURIComponent(geminiModel())}:generateContent`;
-  let attempt = 0;
-  for (;;) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-goog-api-key": env("GEMINI_API_KEY") },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(120_000),
-    });
-    if (res.ok) return (await res.json()) as GenerateResponse;
-    const base = describeStatus(res.status);
-    // Keep Google's machine-readable reason (e.g. PERMISSION_DENIED:SERVICE_DISABLED) — never the message text.
-    let reason = "";
-    try {
-      const body = (await res.json()) as { error?: { status?: string; details?: { reason?: string }[] } };
-      const why = body.error?.details?.find((d) => d.reason)?.reason;
-      reason = [body.error?.status, why].filter(Boolean).join(":");
-    } catch {
-      await res.body?.cancel().catch(() => {});
-    }
-    const info = { ...base, code: reason ? `${base.code}:${res.status}:${reason}` : base.code };
-    if (!info.retryable || attempt >= 2) throw new GeminiHttpError(info);
-    await new Promise((r) => setTimeout(r, 800 * 2 ** attempt + Math.random() * 300));
-    attempt++;
+/** Lighter model used when the primary model times out or is overloaded. */
+export function geminiFallbackModel(): string {
+  return Deno.env.get("GEMINI_FALLBACK_MODEL") || "gemini-3.5-flash-lite";
+}
+
+const ATTEMPT_TIMEOUT_MS = 40_000;
+
+/** One HTTP call to one model. Throws GeminiHttpError (with Google's reason code) or a timeout. */
+async function callModel(model: string, body: Record<string, unknown>): Promise<GenerateResponse> {
+  const res = await fetch(`${ENDPOINT}/${encodeURIComponent(model)}:generateContent`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-goog-api-key": env("GEMINI_API_KEY") },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
+  });
+  if (res.ok) return (await res.json()) as GenerateResponse;
+  const base = describeStatus(res.status);
+  // Keep Google's machine-readable reason (e.g. PERMISSION_DENIED:SERVICE_DISABLED) — never the message text.
+  let reason = "";
+  try {
+    const err = (await res.json()) as { error?: { status?: string; details?: { reason?: string }[] } };
+    const why = err.error?.details?.find((d) => d.reason)?.reason;
+    reason = [err.error?.status, why].filter(Boolean).join(":");
+  } catch {
+    await res.body?.cancel().catch(() => {});
   }
+  throw new GeminiHttpError({ ...base, code: reason ? `${base.code}:${res.status}:${reason}` : base.code });
+}
+
+/**
+ * generateContent with resilience, bounded so callers (pg_net, the app) never wait more than ~90 s:
+ *   1. the primary model, retried once after a quick 429/5xx (not after a timeout — that already took 40 s);
+ *   2. then once on the lighter fallback model when the primary timed out or stayed overloaded.
+ * Non-retryable errors (bad request, auth) fail immediately. Never logs content.
+ */
+async function generate(body: Record<string, unknown>): Promise<GenerateResponse> {
+  const primary = geminiModel();
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await callModel(primary, body);
+    } catch (err) {
+      lastError = err;
+      const info = describeGeminiError(err);
+      if (!info.retryable) throw err;
+      if (info.code === "timeout") break;
+      await new Promise((r) => setTimeout(r, 800 + Math.random() * 400));
+    }
+  }
+  const fallback = geminiFallbackModel();
+  if (fallback && fallback !== primary) {
+    // The lighter model may not accept every thinking setting; let it use its default.
+    const config = { ...((body.generationConfig as Record<string, unknown>) ?? {}) };
+    delete config.thinkingConfig;
+    try {
+      return await callModel(fallback, { ...body, generationConfig: config });
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError;
 }
 
 /** JSON Schema for `responseJsonSchema` / `parametersJsonSchema`, from a Zod schema. */

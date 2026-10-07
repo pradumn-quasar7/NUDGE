@@ -688,6 +688,725 @@ await check('unregister_push_token removes only my own token', async () => {
   eq(Number(psql(`select count(*) from public.push_tokens where token = :'t';`, { t: PUSH.alexTok })), 0, 'gone');
 });
 
+/* ═════════════ message drafts + contact preferences (migration 20261007000009_drafts) ═════════════ */
+// Self-contained section: own helpers and ids (prefixed `draft`), so it merges cleanly with others.
+
+console.log('\nDrafts: contact preferences (contact_policies RLS + stamp trigger)');
+const DRAFT = {
+  ravi: 'b2000000-0000-4000-8000-000000000003',
+  dev: 'b3000000-0000-4000-8000-000000000008',
+  vikram: 'b3000000-0000-4000-8000-000000000005',
+  kavya: 'b3000000-0000-4000-8000-000000000009',
+  rahul: 'b3000000-0000-4000-8000-000000000001',
+  kavyaPromise: 'b6000000-0000-4000-8000-000000000006',
+  kavyaSuggestion: 'b9000000-0000-4000-8000-000000000005',
+  rahulPolicy: 'bb000000-0000-4000-8000-000000000002',
+};
+const draftPolicy = (client, customer) =>
+  client
+    .from('contact_policies')
+    .select('id, customer_id, preferred_method, preferred_channel, preferred_hours_start, preferred_hours_end, max_messages_per_week, opted_out, opted_out_at, opted_out_reason, updated_by_member_id')
+    .eq('customer_id', customer)
+    .maybeSingle();
+const draftUpsertPolicy = (client, customer, patch) =>
+  client
+    .from('contact_policies')
+    .upsert({ org_id: ORG, customer_id: customer, ...patch }, { onConflict: 'org_id,customer_id' })
+    .select('id, preferred_method, preferred_channel, opted_out, opted_out_at, opted_out_reason, updated_by_member_id')
+    .single();
+/** A draft as the draft-message function writes it (service role; here: the superuser). */
+const draftServiceInsert = ({ customer, body, channel = 'whatsapp', intent = 'reply', commitment = '', suggestion = '' }) =>
+  psql(
+    `insert into public.message_drafts (org_id, customer_id, commitment_id, suggestion_id, intent, channel, body, language, created_by_member_id)
+     values (:'org', :'customer', nullif(:'commitment', '')::uuid, nullif(:'suggestion', '')::uuid, :'intent', :'channel', :'body', 'English', :'member')
+     returning id;`,
+    { org: ORG, customer, commitment, suggestion, intent, channel, body, member: M.alex },
+  );
+let draftOutsider;
+
+await check('member upserts a new contact policy (sms → preferred_channel phone, updated_by = caller)', async () => {
+  const row = ok(
+    await draftUpsertPolicy(sana, DRAFT.kavya, { preferred_method: 'sms', preferred_hours_start: '17:00', preferred_hours_end: '21:00', max_messages_per_week: 2 }),
+    'sana upsert',
+  );
+  eq([row.preferred_method, row.preferred_channel, row.opted_out, row.updated_by_member_id], ['sms', 'phone', false, M.sana], 'policy');
+  const read = ok(await draftPolicy(alex, DRAFT.kavya), 'alex read');
+  eq([read.preferred_hours_start, read.preferred_hours_end, read.max_messages_per_week], ['17:00:00', '21:00:00', 2], 'hours/cap');
+});
+await check('seeded policies got preferred_method from preferred_channel', async () => {
+  eq(ok(await draftPolicy(alex, DRAFT.rahul), 'rahul').preferred_method, 'whatsapp', 'rahul');
+  eq(ok(await draftPolicy(alex, C.priya), 'priya').preferred_method, 'call', 'priya');
+});
+await check('upsert on an existing row: opt out with reason (opted_out_at set), opt back in clears the reason', async () => {
+  const out = ok(await draftUpsertPolicy(alex, DRAFT.rahul, { opted_out: true, opted_out_reason: '  Asked us to stop on the phone  ' }), 'opt out');
+  eq([out.id, out.opted_out, out.opted_out_reason, out.updated_by_member_id], [DRAFT.rahulPolicy, true, 'Asked us to stop on the phone', M.alex], 'opted out');
+  assert(out.opted_out_at, 'opted_out_at not set');
+  const back = ok(await draftUpsertPolicy(alex, DRAFT.rahul, { opted_out: false, opted_out_reason: 'stale' }), 'opt in');
+  eq([back.opted_out, back.opted_out_at, back.opted_out_reason], [false, null, null], 'opted back in');
+});
+await check('contact policy changes are audited (owner reads audit_logs)', async () => {
+  const rows = ok(await alex.from('audit_logs').select('action, actor_member_id').eq('entity_type', 'contact_policies').eq('entity_id', DRAFT.rahulPolicy).eq('action', 'update'), 'audit');
+  assert(rows.length >= 2 && rows.every((r) => r.actor_member_id === M.alex), `audit rows ${JSON.stringify(rows)}`);
+});
+await check('a policy cannot be moved to another customer; updated_by is not client-writable', async () => {
+  fails(await alex.from('contact_policies').update({ customer_id: DRAFT.dev }).eq('id', DRAFT.rahulPolicy), 'move', ['23514']);
+  const row = ok(await sana.from('contact_policies').update({ updated_by_member_id: M.alex, max_messages_per_week: 3 }).eq('id', DRAFT.rahulPolicy).select('updated_by_member_id').single(), 'spoof');
+  eq(row.updated_by_member_id, M.sana, 'stamped with the real caller');
+});
+await check('another workspace cannot read or write Brightline contact policies', async () => {
+  draftOutsider = outsider;
+  eq(await count(draftOutsider.from('contact_policies').select('id').eq('org_id', ORG), 'outsider read'), 0, 'rows');
+  fails(await draftUpsertPolicy(draftOutsider, DRAFT.dev, { opted_out: true }), 'outsider upsert', ['42501']);
+  eq(await count(draftOutsider.from('contact_policies').update({ opted_out: true }).eq('org_id', ORG).select('id'), 'outsider update'), 0, 'updated');
+  fails(await anon.from('contact_policies').select('id'), 'anon', ['42501']);
+});
+await check('private customers: a member cannot see or upsert the policy of a customer they do not own', async () => {
+  ok(await alex.rpc('update_workspace_settings', { org_id: ORG, patch: { share_all_customers: false } }), 'private');
+  try {
+    // Dev is owned by Alex in the seed, not by Ravi.
+    const ravi = clientFor(tokenForEmail('ravi@brightline.in'));
+    eq(await count(ravi.from('contact_policies').select('id').eq('customer_id', DRAFT.rahul), 'ravi read'), 0, 'ravi sees rahul policy');
+    fails(await draftUpsertPolicy(ravi, DRAFT.dev, { opted_out: true }), 'ravi upsert', ['42501']);
+  } finally {
+    ok(await alex.rpc('update_workspace_settings', { org_id: ORG, patch: { share_all_customers: true } }), 'shared');
+  }
+});
+
+console.log('\nDrafts: message_drafts RLS + guard trigger');
+let draftDevice;
+let draftKavya;
+await check('member inserts a device draft: author forced to caller, source device', async () => {
+  const row = ok(
+    await alex
+      .from('message_drafts')
+      .insert({ org_id: ORG, customer_id: DRAFT.dev, intent: 'check_in', channel: 'whatsapp', body: 'Hi Dev, just checking in after your audit.', language: 'English' })
+      .select('id, created_by_member_id, source, status')
+      .single(),
+    'insert',
+  );
+  draftDevice = row.id;
+  eq([row.created_by_member_id, row.source, row.status], [M.alex, 'device', 'draft'], 'row');
+  eq(await count(sana.from('message_drafts').select('id').eq('id', draftDevice), 'sana sees'), 1, 'teammate sees shared customer draft');
+});
+await check('drafts refuse: wrong-customer promise, status on insert, AI columns, fake "sent"', async () => {
+  fails(await alex.from('message_drafts').insert({ org_id: ORG, customer_id: DRAFT.dev, commitment_id: DRAFT.kavyaPromise, channel: 'sms', body: 'x' }), 'other customer promise', ['23514']);
+  fails(await alex.from('message_drafts').insert({ org_id: ORG, customer_id: DRAFT.dev, channel: 'sms', body: 'x', status: 'sent' }), 'status', ['42501']);
+  fails(await alex.from('message_drafts').insert({ org_id: ORG, customer_id: DRAFT.dev, channel: 'sms', body: 'x', source: 'ai' }), 'source', ['42501']);
+  fails(await alex.from('message_drafts').insert({ org_id: ORG, customer_id: DRAFT.dev, channel: 'telegram', body: 'x' }), 'channel', ['23514']);
+  fails(await alex.from('message_drafts').update({ status: 'sent' }).eq('id', draftDevice), 'sent without event', ['23514']);
+  fails(await alex.from('message_drafts').update({ created_by_member_id: M.sana }).eq('id', draftDevice), 'author', ['42501']);
+  fails(await alex.from('message_drafts').delete().eq('id', draftDevice), 'delete', ['42501']);
+});
+await check('another workspace and anon see no drafts; outsider cannot mark one sent', async () => {
+  eq(await count(draftOutsider.from('message_drafts').select('id').eq('org_id', ORG), 'outsider'), 0, 'outsider rows');
+  fails(await draftOutsider.rpc('mark_draft_sent', { draft_id: draftDevice, channel: 'whatsapp', final_body: 'x' }), 'outsider mark', ['P0002', '42501']);
+  fails(await draftOutsider.from('message_drafts').insert({ org_id: ORG, customer_id: DRAFT.dev, channel: 'sms', body: 'x' }), 'outsider insert', ['42501']);
+  fails(await anon.from('message_drafts').select('id'), 'anon', ['42501']);
+});
+
+console.log('\nDrafts: mark_draft_sent');
+await check('mark_draft_sent → outbound event by caller + draft sent + suggestion resolved (one call)', async () => {
+  draftKavya = draftServiceInsert({ customer: DRAFT.kavya, body: 'Hi Kavya, following up on quotation Q-0139.', channel: 'whatsapp', intent: 'quote_follow_up', commitment: DRAFT.kavyaPromise, suggestion: DRAFT.kavyaSuggestion });
+  const before = await count(sana.from('conversation_events').select('id').eq('customer_id', DRAFT.kavya), 'events before');
+  const res = ok(await sana.rpc('mark_draft_sent', { draft_id: draftKavya, channel: 'sms', final_body: '  Hi Kavya, following up on Q-0139 — any questions on the premium finish?  ' }), 'mark');
+  assert(res.event_id && res.suggestion_resolved === true && res.already_sent === false, `result ${JSON.stringify(res)}`);
+  const ev = ok(await alex.from('conversation_events').select('kind, channel, direction, title, body, author_member_id, idempotency_key').eq('id', res.event_id).single(), 'event');
+  eq(
+    [ev.kind, ev.channel, ev.direction, ev.title, ev.body, ev.author_member_id, ev.idempotency_key],
+    ['message', 'phone', 'out', 'You sent a quotation follow-up', 'Hi Kavya, following up on Q-0139 — any questions on the premium finish?', M.sana, `draft:${draftKavya}`],
+    'event',
+  );
+  eq(await count(sana.from('conversation_events').select('id').eq('customer_id', DRAFT.kavya), 'events after'), before + 1, 'one event');
+  const d = ok(await alex.from('message_drafts').select('status, channel, body, sent_event_id, sent_by_member_id, sent_at').eq('id', draftKavya).single(), 'draft');
+  eq([d.status, d.channel, d.sent_event_id, d.sent_by_member_id], ['sent', 'sms', res.event_id, M.sana], 'draft sent');
+  assert(d.sent_at && d.body.startsWith('Hi Kavya, following up on Q-0139'), 'sent_at/body');
+  const s = ok(await alex.from('followup_suggestions').select('bucket, resolved_at').eq('id', DRAFT.kavyaSuggestion).single(), 'suggestion');
+  assert(s.bucket === 'done' && s.resolved_at, 'suggestion not resolved');
+  assert(lastCallFor(res.event_id), 'ai-extract not enqueued for the authored outbound event');
+});
+await check('mark_draft_sent is idempotent and a sent draft is immutable', async () => {
+  const again = ok(await sana.rpc('mark_draft_sent', { draft_id: draftKavya, channel: 'sms', final_body: 'different' }), 'again');
+  eq(again.already_sent, true, 'already_sent');
+  eq(await count(alex.from('conversation_events').select('id').eq('idempotency_key', `draft:${draftKavya}`), 'events'), 1, 'still one event');
+  fails(await alex.from('message_drafts').update({ body: 'rewrite history' }).eq('id', draftKavya), 'edit sent', ['23514']);
+  fails(await alex.from('message_drafts').update({ status: 'discarded' }).eq('id', draftKavya), 'discard sent', ['23514']);
+});
+await check('a draft cannot be pointed at someone else’s or an inbound event', async () => {
+  const d = draftServiceInsert({ customer: DRAFT.dev, body: 'Hi Dev' });
+  fails(await alex.from('message_drafts').update({ status: 'sent', sent_event_id: 'b4000000-0000-4000-8000-000000000024' }).eq('id', d), 'inbound event', ['23514']);
+  const evSana = ok(
+    await sana.from('conversation_events').insert({ org_id: ORG, customer_id: DRAFT.dev, kind: 'message', channel: 'whatsapp', direction: 'out', title: 'You replied', body: 'hi', author_member_id: M.sana }).select('id').single(),
+    'sana event',
+  );
+  fails(await alex.from('message_drafts').update({ status: 'sent', sent_event_id: evSana.id }).eq('id', d), 'teammate event', ['23514']);
+});
+await check('opted out → mark_draft_sent refused with 42501, nothing recorded; discard works', async () => {
+  ok(await draftUpsertPolicy(alex, DRAFT.vikram, { opted_out: true, opted_out_reason: 'Not interested' }), 'opt out vikram');
+  const d = draftServiceInsert({ customer: DRAFT.vikram, body: 'Hi Vikram, any update on the café shelves?', intent: 'check_in' });
+  const before = await count(alex.from('conversation_events').select('id').eq('customer_id', DRAFT.vikram), 'before');
+  const res = await alex.rpc('mark_draft_sent', { draft_id: d, channel: 'whatsapp', final_body: 'Hi Vikram' });
+  fails(res, 'opted out', ['42501']);
+  assert(/asked not to be contacted/.test(res.error.message), `message: ${res.error.message}`);
+  eq(await count(alex.from('conversation_events').select('id').eq('customer_id', DRAFT.vikram), 'after'), before, 'no event');
+  eq(ok(await alex.from('message_drafts').select('status').eq('id', d).single(), 'draft').status, 'draft', 'still a draft');
+  const gone = ok(await alex.from('message_drafts').update({ status: 'discarded' }).eq('id', d).select('status, discarded_at').single(), 'discard');
+  assert(gone.status === 'discarded' && gone.discarded_at, 'discarded');
+  fails(await alex.rpc('mark_draft_sent', { draft_id: d }), 'send discarded', ['23514']);
+});
+await check('mark_draft_sent validates channel and text (22023)', async () => {
+  fails(await alex.rpc('mark_draft_sent', { draft_id: draftDevice, channel: 'telegram', final_body: 'x' }), 'channel', ['22023']);
+  fails(await alex.rpc('mark_draft_sent', { draft_id: draftDevice, channel: 'whatsapp', final_body: '   ' }), 'empty', ['22023']);
+  fails(await alex.rpc('mark_draft_sent', { draft_id: crypto.randomUUID() }), 'missing', ['P0002']);
+});
+await check('ai_stage has the draft value (used by the draft-message function)', async () => {
+  eq(psql(`select 'draft'::public.ai_stage::text;`), 'draft', 'enum');
+});
+
+/* ═════════════ customer memory summaries + handoff briefs (migration 20261007000008_memory) ═════════════ */
+// Self-contained section: own helpers and ids (prefixed `mem`), so it merges cleanly with others.
+
+console.log('\nMemory: extraction → summarize-customer queue (pg_net), debounce, sweep');
+const MEM = {
+  arjun: 'b3000000-0000-4000-8000-000000000007',
+  dev: 'b3000000-0000-4000-8000-000000000008',
+  vikram: 'b3000000-0000-4000-8000-000000000005',
+  meera: 'b3000000-0000-4000-8000-000000000006',
+  rahul: 'b3000000-0000-4000-8000-000000000001',
+};
+const memCalls = (customerId) =>
+  psqlJson(
+    `select coalesce(json_agg(row_to_json(c) order by c.id), '[]') from net.http_calls c
+      where c.url like '%/functions/v1/summarize-customer' and c.body ->> 'customer_id' = :'id';`,
+    { id: customerId },
+  );
+const memEventOf = (customerId) =>
+  psql(`select id from public.conversation_events where customer_id = :'id' order by occurred_at desc limit 1;`, { id: customerId });
+/** An extraction ai_runs row over one of the customer's events, as ai-extract writes it (service role). */
+const memRun = (customerId, { status = 'running', stage = 'extraction' } = {}) =>
+  psql(
+    `insert into public.ai_runs (org_id, stage, model, prompt_version, input_event_ids, status)
+     values (:'org', :'stage'::public.ai_stage, 'smoke', 'extract-v1', array[:'event'::uuid], :'status'::public.ai_run_status)
+     returning id;`,
+    { org: ORG, stage, event: memEventOf(customerId), status },
+  );
+const memFinish = (runId, status = 'succeeded') =>
+  psql(`update public.ai_runs set status = :'status'::public.ai_run_status, finished_at = now() where id = :'id';`, { id: runId, status });
+/** Puts a customer outside every debounce window. */
+const memReset = (customerId) =>
+  psql(
+    `delete from public.customer_summary_state where customer_id = :'id';
+     update public.customers set summary_updated_at = now() - interval '1 day' where id = :'id';`,
+    { id: customerId },
+  );
+for (const id of Object.values(MEM)) memReset(id);
+
+await check('extraction run → succeeded enqueues summarize-customer once (url, body, service bearer, timeout)', async () => {
+  const run = memRun(MEM.arjun);
+  eq(memCalls(MEM.arjun).length, 0, 'calls while running');
+  memFinish(run);
+  const calls = memCalls(MEM.arjun);
+  eq(calls.length, 1, 'calls after succeeded');
+  eq(calls[0].url, `${API_URL}/functions/v1/summarize-customer`, 'url');
+  eq(calls[0].body, { customer_id: MEM.arjun }, 'body');
+  eq(calls[0].headers.Authorization, `Bearer ${env.NUDGE_SERVICE_ROLE_KEY}`, 'Authorization header');
+  eq(calls[0].timeout_milliseconds, 120000, 'timeout');
+  const st = psqlJson(`select row_to_json(s) from public.customer_summary_state s where customer_id = :'id';`, { id: MEM.arjun });
+  assert(st.requested_at && st.request_count === 1 && st.dirty_since === null, `state ${JSON.stringify(st)}`);
+});
+await check('debounce: another succeeded extraction within 2 minutes → no call, customer marked dirty', async () => {
+  memFinish(memRun(MEM.arjun));
+  memFinish(memRun(MEM.arjun));
+  eq(memCalls(MEM.arjun).length, 1, 'calls');
+  assert(psql(`select dirty_since from public.customer_summary_state where customer_id = :'id';`, { id: MEM.arjun }), 'not dirty');
+});
+await check('debounce also counts from the last generated summary', async () => {
+  psql(`update public.customers set summary_updated_at = now() - interval '30 seconds' where id = :'id';`, { id: MEM.dev });
+  try {
+    memFinish(memRun(MEM.dev));
+    eq(memCalls(MEM.dev).length, 0, 'calls');
+  } finally {
+    memReset(MEM.dev);
+  }
+});
+await check('failed extraction, other stages and re-saving a succeeded run never enqueue', async () => {
+  memFinish(memRun(MEM.vikram), 'failed');
+  memFinish(memRun(MEM.vikram, { stage: 'summary' }));
+  memRun(MEM.vikram, { status: 'skipped' });
+  eq(memCalls(MEM.vikram).length, 0, 'calls');
+});
+await check('INSERT of an already-succeeded extraction run enqueues too', async () => {
+  memRun(MEM.vikram, { status: 'succeeded' });
+  eq(memCalls(MEM.vikram).length, 1, 'calls');
+});
+await check('flush_customer_summaries (pg_cron sweep) re-enqueues a dirty customer once the window passed', async () => {
+  eq(Number(psql(`select public.flush_customer_summaries();`)), 0, 'nothing due inside the window');
+  psql(`update public.customer_summary_state set requested_at = now() - interval '3 minutes' where customer_id = :'id';`, { id: MEM.arjun });
+  eq(Number(psql(`select public.flush_customer_summaries();`)), 1, 'flushed');
+  eq(memCalls(MEM.arjun).length, 2, 'calls');
+  eq(psql(`select dirty_since is null from public.customer_summary_state where customer_id = :'id';`, { id: MEM.arjun }), 't', 'dirty cleared');
+  eq(Number(psql(`select public.flush_customer_summaries();`)), 0, 'not flushed twice');
+});
+await check('no Vault secrets: the ai_runs update still succeeds, nothing is sent, customer stays dirty', async () => {
+  memReset(MEM.meera);
+  psql(`update vault.secrets set name = 'service_role_key_off' where name = 'service_role_key';`);
+  try {
+    const run = memRun(MEM.meera);
+    memFinish(run);
+    eq(psql(`select status from public.ai_runs where id = :'id';`, { id: run }), 'succeeded', 'run status');
+    eq(memCalls(MEM.meera).length, 0, 'calls');
+    assert(psql(`select dirty_since from public.customer_summary_state where customer_id = :'id';`, { id: MEM.meera }), 'not dirty');
+  } finally {
+    psql(`update vault.secrets set name = 'service_role_key' where name = 'service_role_key_off';`);
+  }
+});
+
+console.log('\nMemory: request_customer_summary ("Refresh") + column / table privileges');
+const memOutsider = clientFor(tokenForEmail(`mem-outsider+${Date.now()}@outside.test`));
+await check('request_customer_summary → queued, then pending with retry_after (rate limit 2 min)', async () => {
+  memReset(MEM.rahul);
+  const first = ok(await alex.rpc('request_customer_summary', { customer_id: MEM.rahul }), 'first');
+  eq(first, { status: 'queued' }, 'first');
+  const calls = memCalls(MEM.rahul);
+  eq(calls.length, 1, 'calls');
+  eq(calls[0].body, { customer_id: MEM.rahul }, 'body');
+  eq(psql(`select requested_by_member_id from public.customer_summary_state where customer_id = :'id';`, { id: MEM.rahul }), M.alex, 'requested by');
+  const second = ok(await sana.rpc('request_customer_summary', { customer_id: MEM.rahul }), 'second');
+  eq(second.status, 'pending', 'second status');
+  assert(second.retry_after >= 1 && second.retry_after <= 120, `retry_after ${second.retry_after}`);
+  eq(memCalls(MEM.rahul).length, 1, 'still one call');
+});
+await check('request_customer_summary → fresh when a summary was just generated', async () => {
+  psql(`update public.customers set summary_updated_at = now() where id = :'id';`, { id: MEM.rahul });
+  try {
+    eq(ok(await alex.rpc('request_customer_summary', { customer_id: MEM.rahul }), 'fresh').status, 'fresh', 'status');
+  } finally {
+    memReset(MEM.rahul);
+  }
+});
+await check('request_customer_summary refused: hidden customer (private workspace), other tenant, anon', async () => {
+  const before = memCalls(MEM.rahul).length;
+  ok(await alex.rpc('update_workspace_settings', { org_id: ORG, patch: { share_all_customers: false } }), 'private');
+  try {
+    fails(await sana.rpc('request_customer_summary', { customer_id: MEM.rahul }), 'sana private', ['42501']);
+  } finally {
+    ok(await alex.rpc('update_workspace_settings', { org_id: ORG, patch: { share_all_customers: true } }), 'shared');
+  }
+  fails(await memOutsider.rpc('request_customer_summary', { customer_id: MEM.rahul }), 'outsider', ['42501']);
+  fails(await anon.rpc('request_customer_summary', { customer_id: MEM.rahul }), 'anon', ['42501', 'PGRST202']);
+  eq(memCalls(MEM.rahul).length, before, 'no new calls');
+});
+await check('queue internals and customer_summary_state are service-only', async () => {
+  fails(await alex.rpc('queue_customer_summary', { customer_id: MEM.rahul }), 'queue', ['42501', 'PGRST202']);
+  fails(await alex.rpc('flush_customer_summaries', {}), 'flush', ['42501', 'PGRST202']);
+  fails(await alex.from('customer_summary_state').select('customer_id'), 'state read', ['42501']);
+});
+await check('AI summary columns are not client-writable (update or insert); plain insert still works', async () => {
+  fails(await alex.from('customers').update({ summary: 'made up' }).eq('id', MEM.rahul), 'summary', ['42501']);
+  fails(await alex.from('customers').update({ summary_ai_run_id: null }).eq('id', MEM.rahul), 'summary_ai_run_id', ['42501']);
+  fails(await alex.from('customers').update({ summary_source_event_ids: [] }).eq('id', MEM.rahul), 'summary_source_event_ids', ['42501']);
+  fails(await alex.from('customers').insert({ org_id: ORG, name: 'Fake Summary', summary: 'made up', summary_updated_at: new Date().toISOString() }), 'insert summary', ['42501']);
+  const row = ok(await alex.from('customers').insert({ org_id: ORG, name: 'Mem Plain', headline: 'New customer', owner_member_id: M.alex }).select('id, summary, summary_source_event_ids').single(), 'plain insert');
+  eq([row.summary, row.summary_source_event_ids], [null, []], 'defaults');
+});
+
+console.log('\nMemory: handoff_briefs RLS');
+const memBrief = (customerId) =>
+  psql(
+    `insert into public.handoff_briefs (org_id, customer_id, requested_by_member_id, for_member_id, brief, fingerprint)
+     values (:'org', :'customer', :'by', :'for', '{"version":1,"history":"x"}', 'smoke') returning id;`,
+    { org: ORG, customer: customerId, by: M.alex, for: M.sana },
+  );
+let memBriefId;
+await check('members who can see the customer read briefs; hidden customer / other tenant / anon do not', async () => {
+  memBriefId = memBrief(MEM.rahul);
+  eq(await count(alex.from('handoff_briefs').select('id').eq('id', memBriefId), 'alex'), 1, 'alex');
+  eq(await count(sana.from('handoff_briefs').select('id').eq('id', memBriefId), 'sana shared'), 1, 'sana shared');
+  ok(await alex.rpc('update_workspace_settings', { org_id: ORG, patch: { share_all_customers: false } }), 'private');
+  try {
+    eq(await count(sana.from('handoff_briefs').select('id').eq('id', memBriefId), 'sana private'), 0, 'sana private');
+  } finally {
+    ok(await alex.rpc('update_workspace_settings', { org_id: ORG, patch: { share_all_customers: true } }), 'shared');
+  }
+  eq(await count(memOutsider.from('handoff_briefs').select('id').eq('org_id', ORG), 'outsider'), 0, 'outsider');
+  fails(await anon.from('handoff_briefs').select('id'), 'anon', ['42501']);
+});
+await check('clients cannot insert, edit or delete briefs (service role only)', async () => {
+  fails(await alex.from('handoff_briefs').insert({ org_id: ORG, customer_id: MEM.rahul, brief: { history: 'fake' } }), 'insert', ['42501']);
+  fails(await alex.from('handoff_briefs').update({ brief: { history: 'edited' } }).eq('id', memBriefId), 'update', ['42501']);
+  fails(await alex.from('handoff_briefs').delete().eq('id', memBriefId), 'delete', ['42501']);
+  eq(psql(`select brief ->> 'history' from public.handoff_briefs where id = :'id';`, { id: memBriefId }), 'x', 'unchanged');
+});
+await check("ai_stage has 'handoff'; customers + handoff_briefs are in supabase_realtime", async () => {
+  eq(psql(`select 'handoff' = any (enum_range(null::public.ai_stage)::text[]);`), 't', 'enum');
+  eq(
+    psql(`select string_agg(tablename, ',' order by tablename) from pg_publication_tables where pubname = 'supabase_realtime' and tablename in ('customers', 'handoff_briefs');`),
+    'customers,handoff_briefs',
+    'publication',
+  );
+});
+
+/* ═════════════ security hardening (migration 20261007000010_hardening) ═════════════ */
+// Self-contained section: own helpers and ids (prefixed `hard`), so it merges cleanly with others.
+// Reuses only the base helpers (clientFor, tokenForEmail, psql, asUser, putObject, …) and the
+// seeded ids. Leaves the Brightline workspace as it found it, except for rows it creates.
+
+console.log('\nHardening: AI quotas (consume_ai_quota / ai_quota_retry_after)');
+const HARD = {
+  alexUser: 'a1000000-0000-4000-8000-000000000001',
+  ownerEmail: `hard-owner+${Date.now()}@delete.test`,
+  memberEmail: `hard-member+${Date.now()}@delete.test`,
+  purgeName: 'Hard Purge Person',
+  wamid: `wamid.HARDPURGE${Date.now()}`,
+  phone: '919999000111',
+};
+const hardQuota = (client, kind, extra = {}) => client.rpc('consume_ai_quota', { kind, org_id: ORG, ...extra });
+const hardUsage = (member, kind) =>
+  Number(psql(`select count(*) from public.ai_usage where member_id = :'m' and kind = :'k';`, { m: member, k: kind }));
+
+await check('quota: allows up to the limit, then refuses (nothing recorded on refusal)', async () => {
+  for (let i = 0; i < 3; i++) eq(ok(await hardQuota(alex, 'copilot', { per_hour: 3 }), `call ${i + 1}`), true, `call ${i + 1}`);
+  eq(ok(await hardQuota(alex, 'copilot', { per_hour: 3 }), 'call 4'), false, 'call 4 refused');
+  eq(hardUsage(M.alex, 'copilot'), 3, 'recorded calls');
+  const wait = ok(await alex.rpc('ai_quota_retry_after', { kind: 'copilot', org_id: ORG, per_hour: 3 }), 'retry after');
+  assert(wait > 0 && wait <= 3600, `retry_after ${wait}`);
+});
+await check('quota: rolling hour frees up, then the day limit applies, then the day frees up', async () => {
+  psql(`update public.ai_usage set at = at - interval '61 minutes' where member_id = :'m' and kind = 'copilot';`, { m: M.alex });
+  eq(ok(await hardQuota(alex, 'copilot', { per_hour: 3, per_day: 4 }), 'after an hour'), true, 'hour window reset');
+  eq(ok(await hardQuota(alex, 'copilot', { per_hour: 3, per_day: 4 }), 'day limit'), false, 'day limit (4) refused');
+  const wait = ok(await alex.rpc('ai_quota_retry_after', { kind: 'copilot', org_id: ORG, per_hour: 3, per_day: 4 }), 'retry after');
+  assert(wait > 3600 && wait <= 86400, `day retry_after ${wait}`);
+  psql(`update public.ai_usage set at = at - interval '25 hours' where member_id = :'m' and kind = 'copilot';`, { m: M.alex });
+  eq(ok(await hardQuota(alex, 'copilot', { per_hour: 3, per_day: 4 }), 'after a day'), true, 'day window reset');
+});
+await check('quota: callers can tighten but never loosen the server limit (transcribe 30/hour)', async () => {
+  psql(
+    `insert into public.ai_usage (org_id, member_id, kind) select :'org', :'m', 'transcribe' from generate_series(1, 30);`,
+    { org: ORG, m: M.sana },
+  );
+  eq(ok(await hardQuota(sana, 'transcribe', { per_hour: 100000, per_day: 100000 }), 'loosen'), false, 'still refused at 30/hour');
+  eq(ok(await hardQuota(sana, 'copilot'), 'other kind'), true, 'other kinds unaffected');
+});
+await check('quota: workspace-wide daily cap applies across members and kinds', async () => {
+  const used = Number(psql(`select count(*) from public.ai_usage where org_id = :'org' and at > now() - interval '1 day';`, { org: ORG }));
+  psql(`update public.ai_quota_limits set per_day = :'n'::int where kind = '*';`, { n: used + 2 });
+  try {
+    eq(ok(await hardQuota(sana, 'draft'), 'draft 1'), true, 'draft 1');
+    eq(ok(await hardQuota(alex, 'summary'), 'summary 1'), true, 'summary 1');
+    eq(ok(await hardQuota(sana, 'draft'), 'draft 2'), false, 'org cap reached (Sana)');
+    eq(ok(await hardQuota(alex, 'handoff'), 'handoff'), false, 'org cap reached (Alex, other kind)');
+    assert(ok(await sana.rpc('ai_quota_retry_after', { kind: 'draft', org_id: ORG }), 'retry') > 0, 'retry_after > 0');
+  } finally {
+    psql(`update public.ai_quota_limits set per_day = 2000 where kind = '*';`);
+  }
+  eq(ok(await hardQuota(sana, 'draft'), 'after restore'), true, 'allowed again');
+});
+await check('quota: unknown kind 22023; another workspace / anon refused; tables not client-readable', async () => {
+  fails(await hardQuota(alex, 'video'), 'unknown kind', ['22023']);
+  fails(await hardQuota(alex, '*'), 'org pseudo-kind', ['22023']);
+  fails(await hardQuota(outsider, 'copilot'), 'outsider', ['42501']);
+  fails(await hardQuota(anon, 'copilot'), 'anon', ['42501', 'PGRST202']);
+  fails(await alex.from('ai_usage').select('id'), 'ai_usage', ['42501']);
+  fails(await alex.from('ai_quota_limits').select('kind'), 'ai_quota_limits', ['42501']);
+  fails(await alex.rpc('ai_quota_wait', { p_org: ORG, p_member: M.alex, p_kind: 'copilot', p_window: '1 hour', p_limit: 1 }), 'internal helper', ['42501', 'PGRST202']);
+});
+
+console.log('\nHardening: purge_customer → Storage queue, attachments, audit / AI / webhook PII scrub');
+let hardPurgeId;
+let hardPurgeVoice;
+let hardPurgeEvent;
+let hardPurgeFile;
+let hardAuditBefore; // audit_logs ids about the customer (and the max id) taken just before the purge
+await check('setup: customer with a voice note + promise + fact, a file, an AI run and a webhook payload', async () => {
+  hardPurgeId = ok(await alex.from('customers').insert({ org_id: ORG, name: HARD.purgeName, owner_member_id: M.alex }).select('id').single(), 'customer').id;
+  hardPurgeVoice = voicePath(ORG, M.alex);
+  putObject(U.alex, hardPurgeVoice);
+  const cap = ok(
+    await alex.rpc('save_capture', {
+      customer_id: hardPurgeId,
+      body: `${HARD.purgeName} wants the blue finish.`,
+      kind: 'voice',
+      promise_title: `Call ${HARD.purgeName} back`,
+      facts: [`${HARD.purgeName} likes blue`],
+      audio_path: hardPurgeVoice,
+    }),
+    'save_capture',
+  );
+  assert(cap.attachment_id && cap.commitment_id, 'capture ids');
+  hardPurgeFile = `${ORG}/${hardPurgeId}/quote.pdf`;
+  psql(`insert into storage.objects (bucket_id, name, metadata) values ('attachments', :'n', '{"size": 10}');`, { n: hardPurgeFile });
+  psql(
+    `insert into public.customer_identities (org_id, customer_id, channel, external_id, verified) values (:'org', :'c', 'whatsapp', :'phone', true);`,
+    { org: ORG, c: hardPurgeId, phone: HARD.phone },
+  );
+  hardPurgeEvent = psql(
+    `insert into public.conversation_events (org_id, customer_id, kind, channel, direction, title, body, idempotency_key)
+     values (:'org', :'c', 'message', 'whatsapp', 'in', 'Message', 'Please send the quote', 'whatsapp:' || :'wamid') returning id;`,
+    { org: ORG, c: hardPurgeId, wamid: HARD.wamid },
+  );
+  psql(
+    `insert into public.ai_runs (org_id, stage, model, prompt_version, input_event_ids, output, status)
+     values (:'org', 'copilot', 'test', 'test', array[:'e'::uuid], jsonb_build_object('question', 'What did ' || :'name' || ' ask?'), 'succeeded');`,
+    { org: ORG, e: hardPurgeEvent, name: HARD.purgeName },
+  );
+  psql(
+    `insert into public.webhook_events (provider, external_id, org_id, signature_valid, payload) values
+       ('whatsapp', 'hard-1-' || :'wamid', :'org', true, jsonb_build_object('messages', jsonb_build_array(jsonb_build_object('id', :'wamid', 'from', :'phone')))),
+       ('whatsapp', 'hard-2-' || :'wamid', :'org', true, jsonb_build_object('contacts', jsonb_build_array(jsonb_build_object('wa_id', :'phone')))),
+       ('whatsapp', 'hard-3-' || :'wamid', :'org', true, '{"messages":[{"id":"wamid.SOMEONE.ELSE","from":"918888000222"}]}');`,
+    { org: ORG, wamid: HARD.wamid, phone: HARD.phone },
+  );
+});
+await check('purge_customer: member without delete rights is refused (42501), nothing removed', async () => {
+  fails(await sana.rpc('purge_customer', { customer: hardPurgeId }), 'sana purge', ['42501']);
+  eq(await count(alex.from('customers').select('id').eq('id', hardPurgeId), 'still there'), 1, 'customer kept');
+});
+await check('purge_customer: owner purges → attachments rows gone, files queued + hidden, storage-purge called', async () => {
+  hardAuditBefore = psqlJson(
+    `select json_build_object('max', (select max(id) from public.audit_logs),
+       'ids', (select coalesce(json_agg(id), '[]') from public.audit_logs where org_id = :'org'
+                 and (entity_id = :'c'::uuid or before ->> 'customer_id' = :'c' or after ->> 'customer_id' = :'c')));`,
+    { org: ORG, c: hardPurgeId },
+  );
+  assert(hardAuditBefore.ids.length >= 3, `audit rows before purge: ${hardAuditBefore.ids.length}`);
+  eq(ok(await alex.rpc('purge_customer', { customer: hardPurgeId }), 'purge'), true, 'purged');
+  eq(Number(psql(`select count(*) from public.customers where id = :'c';`, { c: hardPurgeId })), 0, 'customer row');
+  eq(Number(psql(`select count(*) from public.attachments where customer_id = :'c' or storage_path = :'p';`, { c: hardPurgeId, p: hardPurgeVoice })), 0, 'attachments rows');
+  const queued = psqlJson(
+    `select coalesce(json_agg(json_build_object('b', bucket_id, 'n', object_name, 'r', reason, 'd', done_at) order by bucket_id), '[]') from public.storage_purge_queue where object_name in (:'v', :'f');`,
+    { v: hardPurgeVoice, f: hardPurgeFile },
+  );
+  eq(queued, [
+    { b: 'attachments', n: hardPurgeFile, r: 'purge_customer', d: null },
+    { b: 'voice-notes', n: hardPurgeVoice, r: 'purge_customer', d: null },
+  ], 'queue');
+  eq(visibleObjects(U.alex, hardPurgeVoice), 0, 'uploader can no longer read the recording');
+  const call = psqlJson(`select row_to_json(c) from net.http_calls c where c.url like '%/functions/v1/storage-purge' order by id desc limit 1;`);
+  assert(call, 'no storage-purge call recorded');
+  eq(call.body, { reason: 'purge_customer' }, 'call body');
+  eq(call.headers.Authorization, `Bearer ${env.NUDGE_SERVICE_ROLE_KEY}`, 'service key');
+});
+await check('purge_customer: audit rows kept (who/when/action) but no PII left in before/after/summary', async () => {
+  const rows = psqlJson(
+    `select coalesce(json_agg(json_build_object('action', action, 'type', entity_type, 'actor', actor_member_id, 'before', before, 'after', after, 'summary', summary) order by id), '[]')
+       from public.audit_logs where org_id = :'org' and (id = any (:'ids'::bigint[]) or id > :'max'::bigint);`,
+    { org: ORG, ids: `{${hardAuditBefore.ids.join(',')}}`, max: hardAuditBefore.max },
+  );
+  assert(rows.length >= hardAuditBefore.ids.length + 3, `expected the earlier rows + the purge's delete rows, got ${rows.length}`);
+  for (const r of rows) {
+    assert(r.actor === M.alex, `actor kept (${r.type} ${r.action})`);
+    for (const side of [r.before, r.after]) assert(side === null || JSON.stringify(side) === '{"purged":true}', `${r.type} ${r.action} not scrubbed: ${JSON.stringify(side)}`);
+  }
+  assert(rows.some((r) => r.type === 'customers' && r.action === 'delete' && r.summary === 'deleted a customer and their history'), 'customer delete row');
+  assert(rows.some((r) => r.type === 'customers' && r.action === 'insert' && r.summary === 'added a customer'), 'customer insert row (label dropped)');
+  eq(Number(psql(`select count(*) from public.audit_logs where org_id = :'org' and (before::text like '%' || :'n' || '%' or after::text like '%' || :'n' || '%' or summary like '%' || :'n' || '%');`, { org: ORG, n: HARD.purgeName })), 0, 'name anywhere in audit_logs');
+});
+await check('purge_customer: AI run outputs and raw webhook payloads that mention the customer are scrubbed', async () => {
+  eq(psqlJson(`select output from public.ai_runs where :'e'::uuid = any (input_event_ids);`, { e: hardPurgeEvent }), { purged: true }, 'ai_runs output');
+  eq(Number(psql(`select count(*) from public.webhook_events where external_id like 'hard-%' and payload = '{"purged": true}';`)), 2, 'scrubbed payloads');
+  eq(psqlJson(`select payload from public.webhook_events where external_id = 'hard-3-' || :'w';`, { w: HARD.wamid }).messages[0].id, 'wamid.SOMEONE.ELSE', 'unrelated payload kept');
+});
+
+console.log('\nHardening: export_workspace');
+await check('export_workspace: owner gets every section; member / outsider / anon refused', async () => {
+  fails(await sana.rpc('export_workspace', { org_id: ORG }), 'member', ['42501']);
+  fails(await outsider.rpc('export_workspace', { org_id: ORG }), 'outsider', ['42501']);
+  fails(await anon.rpc('export_workspace', { org_id: ORG }), 'anon', ['42501', 'PGRST202']);
+  const x = ok(await alex.rpc('export_workspace', { org_id: ORG }), 'export');
+  for (const k of ['format', 'version', 'exported_at', 'organization', 'members', 'customers', 'customer_identities', 'events', 'facts', 'commitments', 'extractions', 'contact_policies', 'attachments', 'tasks', 'counts', 'limits', 'truncated', 'truncated_sections']) {
+    assert(k in x, `missing key ${k}`);
+  }
+  eq([x.format, x.version, x.organization.id, x.truncated, x.limits.events, x.limits.other], ['nudge.workspace-export', 1, ORG, false, 5000, 20000], 'header');
+  eq(x.customers.length, await count(alex.from('customers').select('id').eq('org_id', ORG), 'customers'), 'customers = what the owner sees');
+  eq(x.events.length, await count(alex.from('conversation_events').select('id').eq('org_id', ORG), 'events'), 'events');
+  eq(x.counts.customers, x.customers.length, 'counts');
+  assert(x.members.length >= 3 && x.members.every((m) => !('user_id' in m)), 'members without user ids');
+  assert(x.events.every((e) => !('raw' in e) && !('org_id' in e) && !('idempotency_key' in e)), 'events stripped');
+  assert(x.customers.every((c) => !('created_by' in c)), 'customers stripped of auth user ids');
+  assert(x.attachments.every((a) => typeof a.storage_path === 'string'), 'attachments are metadata (paths)');
+});
+await check('export_workspace: audited as "exported the workspace data" in activity_feed', async () => {
+  const row = ok(await alex.from('activity_feed').select('actor_name, summary, action').eq('org_id', ORG).eq('action', 'export').order('id', { ascending: false }).limit(1).single(), 'feed');
+  eq([row.actor_name, row.summary], ['Alex Fernandes', 'exported the workspace data'], 'export row');
+});
+await check('export_workspace: events capped at the most recent 5000 with truncated flag', async () => {
+  const cust = ok(await outsider.from('customers').insert({ org_id: outsiderOrg, name: 'Bulk Buyer' }).select('id').single(), 'outsider customer').id;
+  psql(
+    `insert into public.conversation_events (org_id, customer_id, kind, channel, direction, title, occurred_at)
+     select :'org', :'c', 'message', 'whatsapp', 'in', 'Msg ' || g, now() - g * interval '1 minute' from generate_series(1, 5001) g;`,
+    { org: outsiderOrg, c: cust },
+  );
+  const x = ok(await outsider.rpc('export_workspace', { org_id: outsiderOrg }), 'export');
+  eq([x.events.length, x.truncated, x.truncated_sections, x.events[0].title, x.events[4999].title], [5000, true, ['events'], 'Msg 1', 'Msg 5000'], 'truncation');
+});
+await check('export_section only exports whitelisted tables (and RLS applies)', async () => {
+  fails(await alex.rpc('export_section', { tbl: 'webhook_events', org_id: ORG, order_col: 'received_at', max_rows: 10, drop_keys: [] }), 'webhook_events', ['22023']);
+  const s = ok(await outsider.rpc('export_section', { tbl: 'customers', org_id: ORG, order_col: 'created_at', max_rows: 10, drop_keys: [] }), 'outsider section');
+  eq(s.rows.length, 0, 'outsider gets no Brightline rows');
+});
+
+console.log('\nHardening: delete_workspace');
+let hardOrg;
+let hardOwnerUid;
+let hardVoice;
+let hardMember;
+const hardOwner = clientFor(tokenForEmail(HARD.ownerEmail));
+await check('setup: a second workspace with an owner, a member, a customer, a note, a recording and a webhook row', async () => {
+  hardOrg = ok(await hardOwner.rpc('create_organization', { name: 'Hard Delete Co' }), 'create org');
+  ok(await hardOwner.rpc('invite_member', { org_id: hardOrg, email: HARD.memberEmail }), 'invite');
+  hardOwnerUid = psql(`select id from auth.users where email = lower(:'e');`, { e: HARD.ownerEmail });
+  const member = clientFor(tokenForEmail(HARD.memberEmail));
+  await member.rpc('accept_member_invites');
+  eq(await count(member.from('organizations').select('id').eq('id', hardOrg), 'member sees org'), 1, 'member joined');
+  const me = ok(await hardOwner.from('organization_members').select('id').eq('org_id', hardOrg).eq('role', 'owner').single(), 'owner member').id;
+  const cust = ok(await hardOwner.from('customers').insert({ org_id: hardOrg, name: 'Delete Me Customer', owner_member_id: me }).select('id').single(), 'customer').id;
+  hardVoice = voicePath(hardOrg, me);
+  putObject(hardOwnerUid, hardVoice);
+  ok(await hardOwner.rpc('save_capture', { customer_id: cust, body: 'Delete me note', kind: 'voice', audio_path: hardVoice }), 'capture');
+  psql(`insert into public.webhook_events (provider, external_id, org_id, signature_valid, payload) values ('whatsapp', 'hard-del-' || :'org', :'org', true, '{"x":1}');`, { org: hardOrg });
+  hardMember = member;
+});
+await check('delete_workspace: member, outsider and wrong name are refused; nothing deleted', async () => {
+  fails(await hardMember.rpc('delete_workspace', { org_id: hardOrg, confirm_name: 'Hard Delete Co' }), 'member', ['42501']);
+  fails(await outsider.rpc('delete_workspace', { org_id: ORG, confirm_name: 'Brightline Fixtures' }), 'outsider on Brightline', ['42501']);
+  fails(await hardOwner.rpc('delete_workspace', { org_id: hardOrg, confirm_name: 'Hard Delete' }), 'wrong name', ['22023']);
+  fails(await anon.rpc('delete_workspace', { org_id: hardOrg, confirm_name: 'Hard Delete Co' }), 'anon', ['42501', 'PGRST202']);
+  eq(Number(psql(`select count(*) from public.organizations where id = :'o';`, { o: hardOrg })), 1, 'still there');
+});
+await check('delete_workspace: owner with the name (any case, trimmed) → everything gone, files queued, trail kept', async () => {
+  eq(ok(await hardOwner.rpc('delete_workspace', { org_id: hardOrg, confirm_name: '  hard DELETE co ' }), 'delete'), true, 'deleted');
+  const left = psqlJson(
+    `select json_build_object(
+       'orgs', (select count(*) from public.organizations where id = :'o'),
+       'members', (select count(*) from public.organization_members where org_id = :'o'),
+       'customers', (select count(*) from public.customers where org_id = :'o'),
+       'events', (select count(*) from public.conversation_events where org_id = :'o'),
+       'attachments', (select count(*) from public.attachments where org_id = :'o'),
+       'audit', (select count(*) from public.audit_logs where org_id = :'o'),
+       'webhooks', (select count(*) from public.webhook_events where external_id = 'hard-del-' || :'o'));`,
+    { o: hardOrg },
+  );
+  eq(left, { orgs: 0, members: 0, customers: 0, events: 0, attachments: 0, audit: 0, webhooks: 0 }, 'left behind');
+  const rec = psqlJson(`select row_to_json(d) from public.deleted_workspaces d where org_id = :'o';`, { o: hardOrg });
+  eq([rec.deleted_by, rec.member_count, rec.customer_count], [hardOwnerUid, 2, 1], 'deleted_workspaces record');
+  eq(rec.name_sha256, psql(`select encode(sha256(convert_to('hard delete co', 'UTF8')), 'hex');`), 'name hash');
+  eq(psql(`select reason from public.storage_purge_queue where object_name = :'v';`, { v: hardVoice }), 'delete_workspace', 'recording queued');
+  assert(psqlJson(`select row_to_json(c) from net.http_calls c where c.url like '%/functions/v1/storage-purge' and c.body ->> 'reason' = 'delete_workspace' order by id desc limit 1;`), 'storage-purge call');
+  eq(await count(hardOwner.from('organizations').select('id'), 'owner orgs'), 0, 'owner has no workspace now');
+  fails(await alex.from('deleted_workspaces').select('org_id'), 'clients cannot read deleted_workspaces', ['42501']);
+});
+
+console.log('\nHardening: activity_feed (owners only, no raw jsonb)');
+await check('activity_feed: owner sees summaries with actor names; no before/after anywhere', async () => {
+  const rows = ok(await alex.from('activity_feed').select('*').eq('org_id', ORG).order('id', { ascending: false }).limit(200), 'feed');
+  assert(rows.length > 10, `rows ${rows.length}`);
+  eq(Object.keys(rows[0]).sort(), ['action', 'actor_kind', 'actor_member_id', 'actor_name', 'at', 'entity_id', 'entity_type', 'id', 'org_id', 'summary'], 'columns');
+  assert(rows.every((r) => typeof r.summary === 'string' && r.summary.length > 0), 'every row has a summary');
+  assert(rows.some((r) => r.actor_name === 'Alex Fernandes' && r.summary.startsWith('completed a promise · ')), 'completed-a-promise row');
+  assert(rows.some((r) => r.actor_name === 'Alex Fernandes' && r.summary === 'changed workspace settings'), 'workspace settings are audited');
+  assert(rows.some((r) => r.actor_name === 'Sana Qureshi' && r.summary.startsWith('forgot a fact · ')), 'Sana forgot a fact');
+});
+await check('activity_feed: keyset paging by id works (cursor = last id)', async () => {
+  const page1 = ok(await alex.from('activity_feed').select('id').eq('org_id', ORG).order('id', { ascending: false }).limit(5), 'page 1');
+  const page2 = ok(await alex.from('activity_feed').select('id').eq('org_id', ORG).lt('id', page1[4].id).order('id', { ascending: false }).limit(5), 'page 2');
+  assert(page2.length === 5 && page2[0].id < page1[4].id, 'page 2 continues page 1');
+});
+await check('activity_feed: members and other workspaces see nothing', async () => {
+  eq(await count(sana.from('activity_feed').select('id').eq('org_id', ORG), 'sana'), 0, 'member rows');
+  eq(await count(outsider.from('activity_feed').select('id').eq('org_id', ORG), 'outsider'), 0, 'outsider rows');
+  fails(await anon.from('activity_feed').select('id'), 'anon', ['42501']);
+});
+await check('audit_logs: owners can read the summary columns but not before/after (42501)', async () => {
+  ok(await alex.from('audit_logs').select('id, action, entity_type, summary').eq('org_id', ORG).limit(1), 'summary columns');
+  fails(await alex.from('audit_logs').select('before').eq('org_id', ORG).limit(1), 'before', ['42501']);
+  fails(await alex.from('audit_logs').select('*').limit(1), 'select *', ['42501']);
+});
+
+console.log('\nHardening: regression checks for the sweep');
+await check('catalog: no app function in public is executable by anon or PUBLIC', async () => {
+  const bad = psql(
+    `select coalesce(string_agg(p.oid::regprocedure::text, ', '), '') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public'
+        and not exists (select 1 from pg_depend d where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e')
+        and has_function_privilege('anon', p.oid, 'execute');`,
+  );
+  eq(bad, '', 'anon-executable functions');
+});
+await check('catalog: every SECURITY DEFINER function has a fixed search_path', async () => {
+  eq(psql(`select coalesce(string_agg(p.proname, ', '), '') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and p.prosecdef and not coalesce(p.proconfig::text like '%search_path=%', false);`), '', 'definer functions without search_path');
+});
+await check('catalog: RLS on every public table, views are security_invoker, no client TRUNCATE', async () => {
+  eq(psql(`select coalesce(string_agg(c.relname, ', '), '') from pg_class c join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity;`), '', 'tables without RLS');
+  eq(psql(`select coalesce(string_agg(c.relname, ', '), '') from pg_class c join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname = 'public' and c.relkind = 'v' and not coalesce(c.reloptions::text like '%security_invoker=true%', false);`), '', 'views without security_invoker');
+  eq(psql(`select coalesce(string_agg(c.relname, ', '), '') from pg_class c join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname = 'public' and c.relkind = 'r'
+              and (has_table_privilege('authenticated', c.oid, 'truncate') or has_table_privilege('anon', c.oid, 'truncate')
+                   or has_table_privilege('anon', c.oid, 'select'));`), '', 'tables with client TRUNCATE or anon SELECT');
+});
+await check('RLS helpers are not callable signed out (anon), still work for signed-in users', async () => {
+  fails(await anon.rpc('is_org_member', { org: ORG }), 'anon is_org_member', ['42501', 'PGRST202']);
+  fails(await anon.rpc('try_uuid', { value: ORG }), 'anon try_uuid', ['42501', 'PGRST202']);
+  eq(ok(await alex.rpc('is_org_member', { org: ORG }), 'alex is_org_member'), true, 'alex member');
+  fails(await alex.rpc('audit_summary', { entity_type: 'customers', action: 'insert', before: null, after: {} }), 'internal audit_summary', ['42501', 'PGRST202']);
+});
+await check('voice_note_is_linked() no longer answers for other workspaces', async () => {
+  eq(ok(await alex.rpc('voice_note_is_linked', { object_name: alexVoice }), 'alex'), true, 'own workspace');
+  eq(ok(await outsider.rpc('voice_note_is_linked', { object_name: alexVoice }), 'outsider'), false, 'other workspace');
+});
+await check('attachments insert: only own uploader id and own recording paths', async () => {
+  const base = { org_id: ORG, customer_id: C.rahul, storage_bucket: 'voice-notes', mime_type: 'audio/mp4' };
+  fails(await alex.from('attachments').insert({ ...base, storage_path: voicePath(ORG, M.sana), uploaded_by_member_id: M.alex }), 'teammate recording', ['42501']);
+  fails(await alex.from('attachments').insert({ ...base, storage_path: voicePath(ORG, M.alex) }), 'no uploader', ['42501']);
+  fails(await alex.from('attachments').insert({ ...base, storage_bucket: 'avatars', storage_path: `${ORG}/x.png`, uploaded_by_member_id: M.alex }), 'other bucket', ['42501']);
+  const own = voicePath(ORG, M.alex);
+  ok(await alex.from('attachments').insert({ ...base, storage_path: own, uploaded_by_member_id: M.alex }), 'own recording');
+  psql(`delete from public.attachments where storage_path = :'p';`, { p: own });
+});
+await check('storage_purge_queue / deleted_workspaces are service-only', async () => {
+  fails(await alex.from('storage_purge_queue').select('id'), 'queue', ['42501']);
+  eq(ok(await outsider.rpc('storage_object_purged', { bucket: 'voice-notes', object_name: hardPurgeVoice }), 'outsider purged?'), false, 'other workspace');
+  eq(ok(await alex.rpc('storage_object_purged', { bucket: 'voice-notes', object_name: hardPurgeVoice }), 'alex purged?'), true, 'own workspace');
+});
+
+/* ───────────── AI suggestion integrity (migration 20261007000011) ───────────── */
+
+console.log('\nAI suggestion integrity: "confirmed" only with a real promise of the same customer');
+{
+  // Two fresh pending suggestions for one customer, plus a promise that belongs to a different customer.
+  const ids = psqlJson(`
+    with org as (select id from public.organizations where name = 'Brightline Fixtures' limit 1),
+         custs as (select c.id, row_number() over (order by c.created_at) as n from public.customers c, org where c.org_id = org.id),
+         a as (select id from custs where n = 1), b as (select id from custs where n = 2),
+         x1 as (insert into public.extractions (org_id, customer_id, title) select org.id, a.id, 'Integrity check one' from org, a returning id),
+         x2 as (insert into public.extractions (org_id, customer_id, title) select org.id, a.id, 'Integrity check two' from org, a returning id),
+         other as (select id from public.commitments where customer_id = (select id from b) limit 1)
+    select json_build_object('x1', (select id from x1), 'x2', (select id from x2), 'other', (select id from other));`);
+
+  await check('client cannot mark a suggestion confirmed without a promise', async () => {
+    fails(await alex.from('extractions').update({ status: 'confirmed' }).eq('id', ids.x1).select('id'), 'bare confirm', ['23514']);
+  });
+  await check("client cannot confirm it against another customer's promise", async () => {
+    assert(ids.other, 'seed has a promise for a second customer');
+    fails(await alex.from('extractions').update({ status: 'confirmed', commitment_id: ids.other }).eq('id', ids.x1).select('id'), 'cross-customer confirm', ['23514']);
+  });
+  await check('confirm_extraction() still confirms (promise created, link set)', async () => {
+    const commitmentId = ok(await alex.rpc('confirm_extraction', { extraction_id: ids.x1 }), 'confirm');
+    const row = ok(await alex.from('extractions').select('status, commitment_id').eq('id', ids.x1).single(), 'read back');
+    eq(row, { status: 'confirmed', commitment_id: commitmentId }, 'confirmed row');
+  });
+  await check('a confirmed suggestion cannot be reopened or re-linked', async () => {
+    fails(await alex.from('extractions').update({ status: 'ignored' }).eq('id', ids.x1).select('id'), 'reopen', ['23514']);
+    fails(await alex.from('extractions').update({ commitment_id: ids.other }).eq('id', ids.x1).select('id'), 'relink', ['23514']);
+  });
+  await check('ignoring a pending suggestion still works', async () => {
+    const rows = ok(await alex.from('extractions').update({ status: 'ignored' }).eq('id', ids.x2).select('id, status'), 'ignore');
+    eq(rows, [{ id: ids.x2, status: 'ignored' }], 'ignored row');
+  });
+}
+
 /* ───────────── result ───────────── */
 
 console.log(`\n${passed} passed, ${failures.length} failed`);

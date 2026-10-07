@@ -41,7 +41,7 @@ export default function VoiceCapture() {
 }
 
 type Phase = 'listening' | 'transcribing' | 'typing' | 'understanding' | 'understood' | 'denied' | 'failed';
-type Failure = 'transcription' | 'nothing_heard' | 'mic';
+type Failure = 'transcription' | 'nothing_heard' | 'mic' | 'rate_limited';
 
 /** A real recording: the local file, and the Storage path once uploaded. */
 type Recording = { uri: string; durationMs: number; path?: string };
@@ -141,9 +141,9 @@ function VoiceBody() {
       setText(res.transcript);
       setDraft(understandText(res.transcript, state, hint));
       setPhase('understood');
-    } catch {
+    } catch (e) {
       if (closed.current || gen !== generation.current) return;
-      setFailure('transcription');
+      setFailure((e as { code?: string })?.code === 'rate_limited' ? 'rate_limited' : 'transcription');
       setPhase('failed');
     }
   };
@@ -220,8 +220,10 @@ function VoiceBody() {
   }
 
   if (phase === 'failed') {
-    const canRetry = failure === 'transcription' && hasRecording;
-    const copy = canRetry
+    const canRetry = (failure === 'transcription' || failure === 'rate_limited') && hasRecording;
+    const copy = failure === 'rate_limited'
+      ? { title: 'That’s a lot of voice notes for one hour.', body: 'Your recording is safe. Try again in a little while, or type it instead.' }
+      : canRetry
       ? { title: 'Couldn’t understand that recording.', body: 'Your recording is safe — try again or type instead.' }
       : failure === 'mic'
         ? { title: 'Couldn’t start the microphone.', body: 'Another app may be using it. Try again, or type the note instead.' }

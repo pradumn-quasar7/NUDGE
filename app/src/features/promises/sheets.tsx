@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
 import { Modal, View } from 'react-native';
+import { router } from 'expo-router';
 import { Avatar, Chip, Sep, Sheet, Tap, Txt, useSheetClose, useToast } from '@/components';
 import { useStore } from '@/data/store';
 import type { Commitment } from '@/data/types';
+import { briefHref } from '@/lib/brief';
 import { firstName } from '@/lib/format';
 import { snoozeOptions } from './format';
 
@@ -93,7 +95,17 @@ function HandOffBody({ commitment }: { commitment: Commitment }) {
               scale={0.99}
               onPress={() => {
                 actions.handOff(commitment.id, m.id);
-                toast({ text: m.id === state.me ? 'Taken back' : `Handed off to ${firstName(m.name)}`, icon: 'check' });
+                if (m.id === state.me) toast({ text: 'Taken back', icon: 'check' });
+                else
+                  // Offer the handoff brief for the new owner (history, promises, what to watch).
+                  toast({
+                    text: `Handed off to ${firstName(m.name)}`,
+                    icon: 'check',
+                    action: {
+                      label: 'Send a brief',
+                      onPress: () => router.push(briefHref(commitment.customerId, { commitmentId: commitment.id, forMemberId: m.id })),
+                    },
+                  });
                 close();
               }}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56 }}

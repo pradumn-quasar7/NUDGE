@@ -16,6 +16,8 @@ Postgres schema + Row Level Security, a demo seed, and four Deno Edge Functions:
 | `functions/copilot` | "What did I promise?": answers only from the user's own records, with evidence |
 | `functions/transcribe` | Voice note in `voice-notes` → verbatim transcript (Gemini, inline audio; Hinglish kept as spoken). Returns it to the app only; `ai_runs` records path/language/length, never the words |
 | `functions/followup-scheduler` | Cron job: due promises → contact-policy check → suggestions + notifications (never sends) |
+| `migrations/20261007000010_hardening.sql` | AI rate limits (`consume_ai_quota`), `purge_customer()` also removes files + scrubs PII, `export_workspace()`, `delete_workspace()`, `activity_feed` view, privilege sweep (see §4, §5) |
+| `functions/storage-purge` | Drains `storage_purge_queue` with the Storage API (files of purged customers / deleted workspaces) |
 | `functions/_shared` | CORS, Supabase clients, auth checks, Claude client, time zone helpers, row types |
 
 The app's domain types (`app/src/data/types.ts`) map 1:1 onto these tables (camelCase there,
@@ -92,6 +94,7 @@ supabase functions deploy ai-extract
 supabase functions deploy copilot
 supabase functions deploy transcribe
 supabase functions deploy followup-scheduler
+supabase functions deploy storage-purge
 ```
 
 `verify_jwt` per function comes from `config.toml`: off for `whatsapp-webhook` (HMAC-signed by
@@ -211,9 +214,31 @@ Never put the service-role key or `ANTHROPIC_API_KEY` in the app.
   `whatsapp:<message id>`. Identity resolution is serialised per sender with an advisory lock.
 
 **Audit + secrets**
-- `audit_logs` gets a row (actor, action, before/after) for every insert/update/delete on
-  customers, commitments, customer_facts, organization_members and integration_accounts. Readable
-  by owners, writable only by the trigger.
+- `audit_logs` gets a row (actor, action, before/after, `summary`) for every insert/update/delete on
+  customers, commitments, customer_facts, organization_members and integration_accounts, and every
+  update of `organizations` (settings, profile, plan). Writable only by triggers / definer RPCs.
+  Owners read it through the `activity_feed` view; clients have column grants on the summary columns
+  only — `before` / `after` (whole rows, PII) never leave the server.
+- `purge_customer()` keeps the customer's audit rows (who / when / action) but replaces before/after
+  with `{"purged": true}` and drops the label from the summary; it also scrubs `ai_runs.output` of runs
+  that used the customer's events and raw `webhook_events` payloads that mention their message ids
+  or numbers, and queues their files for removal. `delete_workspace()` removes the workspace's audit
+  trail and webhook payloads too; `deleted_workspaces` (service-only) keeps org id, sha256 of the
+  name, who and when.
+
+**AI quotas**
+- `copilot` and `transcribe` call `consume_ai_quota(kind, org_id)` with the **user's** client before
+  the model: per member per kind (copilot 60/hour, 300/day; transcribe 30/hour, 120/day; rolling
+  windows) and per workspace (2000 AI calls/day, all kinds). Limits live in `ai_quota_limits`
+  (service-only; edit there, no deploy needed); callers can tighten but never loosen them. Refusal →
+  `429 { error: "rate_limited", retry_after }` + `Retry-After`. Kinds `summary`, `handoff`, `draft`
+  are seeded for the other AI functions to opt in (`enforceAiQuota()` in `_shared/ratelimit.ts`).
+
+**Files in Storage**
+- Bytes can only be removed through the Storage API (a SQL `DELETE` on `storage.objects` orphans
+  the file and is refused on hosted projects). Purges insert paths into `storage_purge_queue`
+  (service-only), which hides them from their uploader immediately, and start `storage-purge`
+  through pg_net; pg_cron retries hourly (`nudge-storage-purge`).
 - Integration tokens are Vault references (`token_secret_id`), never plaintext.
 - Functions log ids, counts and error codes only — never message bodies or model output.
 
@@ -259,10 +284,13 @@ Error codes raised by the RPCs: `42501` not allowed, `23514` check failed, `2350
 | Change teammate role / title / name (owner) | direct | `update organization_members set role, title, name` | "members: owners manage"; only these columns. Last active owner can't be demoted/removed (trigger, `23514`) |
 | Remove teammate / cancel invite (owner) | direct | `delete from organization_members where id = …` | "members: owners remove" |
 | Connect / pause integration (owner) | direct | `update integration_accounts set status = 'connected' \| 'paused' \| 'available', detail, last_sync_at` | "integrations: owners update"; column grant `name, status, detail, last_sync_at`. `external_account_id`, `token_secret_id`, `metadata` are service-role only |
-| Delete customer and all history | RPC | `purge_customer(customer uuid)` → `boolean` | SECURITY DEFINER; owner or `members_can_delete` |
-| "What did I promise?" | Edge Function | `functions.invoke('copilot', { body: { org_id, question, customer_id } })` | user JWT, RLS-scoped reads |
+| Delete customer and all history | RPC | `purge_customer(customer uuid)` → `boolean` | SECURITY DEFINER; owner or `members_can_delete`. Also queues the customer's files for removal and scrubs their PII from the audit trail, AI runs and webhook payloads |
+| Export the workspace (owner) | RPC | `export_workspace(org_id uuid)` → `jsonb` `{ format: 'nudge.workspace-export', version, exported_at, organization, members, customers, customer_identities, events, facts, commitments, extractions, contact_policies, attachments, tasks, counts, limits, truncated, truncated_sections }`. Events: most recent 5000; other sections: 20000. Files by path only; no member user ids, raw payloads or internal keys | SECURITY INVOKER (RLS); owner only (`42501`). Audited ("exported the workspace data") |
+| Delete the workspace (owner) | RPC | `delete_workspace(org_id uuid, confirm_name text)` → `boolean` | SECURITY DEFINER; owner only (`42501`); `confirm_name` = workspace name, case-insensitive, trimmed (`22023`). Cascades everything; files queued for `storage-purge`. Sign out afterwards |
+| Activity log (owner) | view | `select id, at, action, entity_type, entity_id, actor_kind, actor_member_id, actor_name, summary from activity_feed where org_id = … order by id desc limit 40`; next page `id < last id` | `security_invoker` view over `audit_logs` → policy "audit: owners read" (members get no rows). `summary` is "verb · label" ("completed a promise · Send revised quotation") |
+| "What did I promise?" | Edge Function | `functions.invoke('copilot', { body: { org_id, question, customer_id } })`. `429 rate_limited` (+ `Retry-After`) when over quota, `503 ai_unavailable` on model outage — answer on-device then | user JWT, RLS-scoped reads; `consume_ai_quota('copilot', org_id)` |
 | Upload a voice note | Storage | `storage.from('voice-notes').upload('{org_id}/{my member id}/{uuid}.m4a', bytes, { contentType: 'audio/mp4' })` (private bucket, 15 MiB, `audio/*`) | policies "voice notes: upload own / read own": first folder an org I'm an **active** member of, second folder **my** member id, nothing deeper. No UPDATE (never overwritten) |
-| Transcribe it | Edge Function | `functions.invoke('transcribe', { body: { org_id, path } })` → `{ transcript, language, aiRunId }`. Errors: `path_not_allowed` 403, `recording_not_found` 404, `recording_too_large` 413 (> 14 MiB, Gemini's inline limit), `transcription_failed` 502, `transcription_rejected` 422, `transcription_unavailable` 501 (provider isn't Gemini) | user JWT + active membership; path must be the caller's own folder; downloaded with the service role |
+| Transcribe it | Edge Function | `functions.invoke('transcribe', { body: { org_id, path } })` → `{ transcript, language, aiRunId }`. Errors: `path_not_allowed` 403, `recording_not_found` 404, `recording_too_large` 413 (> 14 MiB, Gemini's inline limit), `transcription_failed` 502, `transcription_rejected` 422, `transcription_unavailable` 501 (provider isn't Gemini), `rate_limited` 429 (+ `Retry-After`) | user JWT + active membership; path must be the caller's own folder; downloaded with the service role |
 | Save it with the note | RPC | `save_capture(…, audio_path text default null)` → also `"attachment_id"`. Inserts `attachments (storage_bucket 'voice-notes', storage_path, event_id = the note, mime_type, size_bytes, uploaded_by_member_id)` | path must be `{org}/{caller's member id}/{file}` (`22023`), the object must exist and be readable by the caller (`P0002`), one note per recording (`23505`) |
 | Discard an unsaved recording | Storage | `storage.from('voice-notes').remove([path])` | "voice notes: delete own unsaved": own folder and **not** attached to a note (a saved note's audio is history) |
 
@@ -279,11 +307,9 @@ streamed — on a `notifications` / `notification_reads` change, re-select from 
 - pgvector semantic retrieval (`semanticCandidates()` in `functions/copilot` is the extension point).
 - Customer summary regeneration (`ai_stage = 'summary'`), follow-up ranking beyond due dates.
 - Push notifications (Expo push tokens), outbound WhatsApp sending after explicit user approval,
-  WhatsApp status callbacks. Voice notes: playback in the app, and `purge_customer()` should also remove
-  that customer's `voice-notes` objects (via their `attachments` rows).
-- `purge_customer()` should also delete Storage objects under `{org_id}/{customer_id}/` and scrub
-  that customer's rows in `audit_logs`.
-- Per-user rate limits on `copilot`.
+  WhatsApp status callbacks. Voice notes: playback in the app.
+- Retention for raw `webhook_events.payload` (e.g. null it 30 days after `processed_at`).
+- Rate limits for the service-side `ai-extract` (counted per workspace, not per member).
 - Retry for `ai-extract` calls that pg_net could not deliver (see `net._http_response`).
 - Replace the hand-written row types with `supabase gen types typescript`.
 
