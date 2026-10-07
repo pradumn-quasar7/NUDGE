@@ -377,6 +377,8 @@ function makeActions(dispatch: React.Dispatch<Action>, get: () => AppState, clou
       kind: 'voice' | 'note';
       promise?: { title: string; dueAt: number };
       facts?: string[];
+      /** Cloud: an uploaded voice-notes object to attach to the note (remote.uploadVoiceNote). */
+      audioPath?: string;
     }) => {
       const now = Date.now();
       const event: CustomerEvent = {
@@ -427,7 +429,15 @@ function makeActions(dispatch: React.Dispatch<Action>, get: () => AppState, clou
       // Cloud: one transaction — the note is the immutable source; the promise and facts point back to it.
       void cloud.run(
         'Save capture',
-        () => remote.saveCapture({ customerId: input.customerId, body: input.transcript, kind: input.kind, promise: input.promise, facts: input.facts }),
+        () =>
+          remote.saveCapture({
+            customerId: input.customerId,
+            body: input.transcript,
+            kind: input.kind,
+            promise: input.promise,
+            facts: input.facts,
+            audioPath: input.audioPath,
+          }),
         true,
       );
       return event;

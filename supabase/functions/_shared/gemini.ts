@@ -135,6 +135,17 @@ export async function geminiJson<T>(opts: {
   maxTokens?: number;
   thinking?: "low" | "medium" | "high";
 }): Promise<JsonResult<T>> {
+  return structuredCall({ system: opts.system, contents: opts.contents, schema: opts.schema, maxTokens: opts.maxTokens ?? 16000, thinking: opts.thinking ?? "low" });
+}
+
+/** Shared by geminiJson / geminiAudioJson: one constrained-JSON generateContent call, Zod-validated. */
+async function structuredCall<T>(opts: {
+  system: string;
+  contents: unknown[];
+  schema: z.ZodType<T>;
+  maxTokens: number;
+  thinking: "low" | "medium" | "high";
+}): Promise<JsonResult<T>> {
   const model = geminiModel();
   let response: GenerateResponse;
   try {
@@ -144,8 +155,8 @@ export async function geminiJson<T>(opts: {
       generationConfig: {
         responseMimeType: "application/json",
         responseJsonSchema: geminiJsonSchema(opts.schema),
-        maxOutputTokens: opts.maxTokens ?? 16000,
-        thinkingConfig: { thinkingLevel: opts.thinking ?? "low" },
+        maxOutputTokens: opts.maxTokens,
+        thinkingConfig: { thinkingLevel: opts.thinking },
       },
     });
   } catch (err) {
@@ -174,6 +185,87 @@ export async function geminiJson<T>(opts: {
   const parsed = opts.schema.safeParse(raw);
   if (!parsed.success) return { status: "failed", error: "invalid_output", retryable: false, usage, model: servedBy };
   return { status: "ok", data: parsed.data, usage, model: servedBy };
+}
+
+/* ───────────── Audio (inline) ───────────── */
+
+/** Audio sent inline in the request (base64). The whole request must stay under Gemini's 20 MB inline limit. */
+export type GeminiInlineAudio = { mimeType: string; data: string };
+
+/** Largest raw audio we send inline: base64 grows it by 4/3, and the prompt needs a little room under 20 MB. */
+export const GEMINI_INLINE_AUDIO_MAX_BYTES = 14 * 1024 * 1024;
+
+/**
+ * Audio MIME types listed as supported by Gemini audio understanding
+ * (https://ai.google.dev/gemini-api/docs/audio). MP4-container audio (.m4a, `audio/mp4`,
+ * `audio/x-m4a`) is sent as `audio/m4a`. Returns null for anything else.
+ */
+export function geminiAudioMimeType(contentType: string | null | undefined, fileName = ""): string | null {
+  const type = (contentType ?? "").split(";")[0].trim().toLowerCase();
+  const byType: Record<string, string> = {
+    "audio/mp4": "audio/m4a",
+    "audio/m4a": "audio/m4a",
+    "audio/x-m4a": "audio/m4a",
+    "audio/aac": "audio/aac",
+    "audio/mpeg": "audio/mpeg",
+    "audio/mp3": "audio/mp3",
+    "audio/wav": "audio/wav",
+    "audio/x-wav": "audio/wav",
+    "audio/wave": "audio/wav",
+    "audio/aiff": "audio/aiff",
+    "audio/x-aiff": "audio/aiff",
+    "audio/ogg": "audio/ogg",
+    "audio/flac": "audio/flac",
+    "audio/x-flac": "audio/flac",
+    "audio/webm": "audio/webm",
+    "audio/opus": "audio/opus",
+  };
+  if (byType[type]) return byType[type];
+  const ext = /\.([a-z0-9]+)$/i.exec(fileName)?.[1]?.toLowerCase() ?? "";
+  const byExt: Record<string, string> = {
+    m4a: "audio/m4a",
+    mp4: "audio/m4a",
+    aac: "audio/aac",
+    mp3: "audio/mp3",
+    wav: "audio/wav",
+    aiff: "audio/aiff",
+    ogg: "audio/ogg",
+    flac: "audio/flac",
+    webm: "audio/webm",
+    opus: "audio/opus",
+  };
+  return byExt[ext] ?? null;
+}
+
+/** Standard base64 of raw bytes (chunked so large files don't overflow the call stack). */
+export function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
+/**
+ * Structured JSON about one inline audio clip (e.g. a transcript), validated with Zod.
+ * The audio part comes before the instruction, as Google recommends for single-media prompts.
+ */
+export async function geminiAudioJson<T>(opts: {
+  system: string;
+  prompt: string;
+  audio: GeminiInlineAudio;
+  schema: z.ZodType<T>;
+  maxTokens?: number;
+  thinking?: "low" | "medium" | "high";
+}): Promise<JsonResult<T>> {
+  return structuredCall({
+    system: opts.system,
+    contents: [{ role: "user", parts: [{ inlineData: { mimeType: opts.audio.mimeType, data: opts.audio.data } }, { text: opts.prompt }] }],
+    schema: opts.schema,
+    maxTokens: opts.maxTokens ?? 8000,
+    thinking: opts.thinking ?? "low",
+  });
 }
 
 /**

@@ -65,7 +65,7 @@ function dueOptions(current: number | undefined, now = Date.now()) {
   return opts.sort((a, b) => a - b);
 }
 
-export function UnderstandingView({ transcript, fill }: { transcript?: string; fill?: boolean }) {
+export function UnderstandingView({ transcript, fill, detail }: { transcript?: string; fill?: boolean; detail?: string }) {
   return (
     <View style={{ flex: fill ? 1 : undefined, alignItems: 'center', justifyContent: 'center', gap: 16, paddingVertical: 40 }}>
       <ThinkingDots />
@@ -77,6 +77,7 @@ export function UnderstandingView({ transcript, fill }: { transcript?: string; f
           “{transcript}”
         </Txt>
       ) : null}
+      {detail ? <Txt variant="meta">{detail}</Txt> : null}
     </View>
   );
 }
@@ -126,9 +127,15 @@ export function UnderstoodView({
   onEdit,
   onSaved,
   fill,
+  audioPath,
+  language,
 }: {
   draft: CaptureDraft;
   kind: 'voice' | 'note';
+  /** Cloud voice notes: the uploaded recording, attached to the saved note. */
+  audioPath?: string;
+  /** Language(s) the transcript was heard in ("Hinglish") — shown under the quote. */
+  language?: string;
   /** "Edit" — go back to typing with the transcript. */
   onEdit: (transcript: string) => void;
   /** After save. Defaults to closing the enclosing sheet. */
@@ -172,6 +179,7 @@ export function UnderstoodView({
       kind,
       promise: act ? { title, dueAt: dueAt ?? Date.now() + DAY_MS } : undefined,
       facts,
+      audioPath,
     });
     const n = 1 + (act ? 1 : 0) + facts.length;
     toast({ text: `Remembered ${plural(n, 'detail')} about ${first}`, icon: 'spark' });
@@ -186,9 +194,12 @@ export function UnderstoodView({
           Understood
         </Txt>
       </View>
-      <Txt variant="s" style={{ fontStyle: 'italic' }}>
-        “{transcript}”
-      </Txt>
+      <View style={{ gap: 4 }}>
+        <Txt variant="s" style={{ fontStyle: 'italic' }}>
+          “{transcript}”
+        </Txt>
+        {language && language !== 'Unknown' ? <Txt variant="meta">Transcribed from your voice · {language}</Txt> : null}
+      </View>
 
       <ScrollView style={{ flexGrow: 0, flexShrink: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {picking ? (

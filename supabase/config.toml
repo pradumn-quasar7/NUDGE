@@ -71,6 +71,14 @@ verify_jwt = false
 [functions.followup-scheduler]
 verify_jwt = false
 
+# Internal: called by the notifications trigger (pg_net) with the service-role key, checked in code.
+[functions.push-dispatch]
+verify_jwt = false
+
 # Called by the app with the user's JWT (verified by the gateway and again in code).
 [functions.copilot]
+verify_jwt = true
+
+# Voice note transcription: called by the app with the user's JWT (verified by the gateway and again in code).
+[functions.transcribe]
 verify_jwt = true

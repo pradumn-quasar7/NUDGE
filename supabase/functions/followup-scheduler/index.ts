@@ -148,7 +148,8 @@ Deno.serve(async (req) => {
         .select("id");
       if (notificationError) throw new HttpError(500, "notifications_failed");
       notifications = created?.length ?? 0;
-      // TODO: push delivery (Expo push tokens) for newly created notifications.
+      // Push delivery: each newly inserted row fires the notifications_enqueue_push trigger
+      // (migration 20261007000007) → push-dispatch. Duplicates are skipped by ON CONFLICT DO NOTHING.
     }
 
     return json({ candidates: candidates.length, suggestions: suggestions?.length ?? 0, notifications });

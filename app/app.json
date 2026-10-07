@@ -18,7 +18,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "app.nudge.mobile",
-      "versionCode": 1
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -40,6 +40,21 @@
             "backgroundColor": "#0B0B0E",
             "image": "./assets/splash-icon-dark.png"
           }
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Nudge uses the microphone only while you record a voice note, so it can remember what you said.",
+          "enableBackgroundRecording": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#4B47E0",
+          "defaultChannel": "reminders"
         }
       ]
     ],

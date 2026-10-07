@@ -1,3 +1,4 @@
+import { File } from 'expo-file-system';
 import type { CopilotAnswer } from '@/lib/ai';
 import { requireSupabase } from '@/lib/supabase';
 import type {
@@ -732,27 +733,35 @@ export async function handOffCommitment(id: ID, memberId: ID): Promise<void> {
   await affected(await db.from('commitments').update({ owner_member_id: memberId }).eq('id', id).select('id'), 'Hand off');
 }
 
-/** Voice/note capture in one transaction: the note event, an optional promise and facts, all linked to the note. */
+/**
+ * Voice/note capture in one transaction: the note event, an optional promise and facts, all linked to the note.
+ * `audioPath` (a voice-notes object from `uploadVoiceNote`) is attached to the note. If only the attachment
+ * can't be made, the note is saved without it — the words matter more than the recording.
+ */
 export async function saveCapture(input: {
   customerId: ID;
   body: string;
   kind: 'note' | 'voice';
   promise?: { title: string; dueAt: number };
   facts?: string[];
+  audioPath?: string;
 }): Promise<{ eventId: ID; commitmentId: ID | null }> {
   const db = requireSupabase();
-  const res = must(
-    await db.rpc('save_capture', {
-      customer_id: input.customerId,
-      body: input.body,
-      kind: input.kind,
-      promise_title: input.promise?.title ?? null,
-      promise_due_at: input.promise ? iso(input.promise.dueAt) : null,
-      facts: input.facts?.length ? input.facts : null,
-    }),
-    'Save capture',
-  ) as { event_id: ID; commitment_id: ID | null };
-  return { eventId: res.event_id, commitmentId: res.commitment_id };
+  const args = {
+    customer_id: input.customerId,
+    body: input.body,
+    kind: input.kind,
+    promise_title: input.promise?.title ?? null,
+    promise_due_at: input.promise ? iso(input.promise.dueAt) : null,
+    facts: input.facts?.length ? input.facts : null,
+  };
+  let res = input.audioPath ? await db.rpc('save_capture', { ...args, audio_path: input.audioPath }) : await db.rpc('save_capture', args);
+  // Recording missing / not ours / already attached (P0002, 22023, 23505): save the note without it.
+  if (input.audioPath && res.error && ['P0002', '22023', '23505'].includes(res.error.code ?? '')) {
+    res = await db.rpc('save_capture', args);
+  }
+  const row = must(res, 'Save capture') as { event_id: ID; commitment_id: ID | null };
+  return { eventId: row.event_id, commitmentId: row.commitment_id };
 }
 
 export async function addCommitment(
@@ -808,4 +817,63 @@ export async function addOutboundMessage(
     }),
     'Record message',
   );
+}
+
+/* ───────────── Voice notes ───────────── */
+
+export const VOICE_BUCKET = 'voice-notes';
+/** Same as the bucket's file_size_limit (20261007000006_voice.sql). */
+export const VOICE_MAX_BYTES = 15 * 1024 * 1024;
+
+function randomId(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (c?.randomUUID) return c.randomUUID();
+  // RFC 4122 v4 shape; only needs to be unique within the member's folder.
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (ch) => {
+    const r = (Math.random() * 16) | 0;
+    return (ch === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+/**
+ * Uploads a local recording (file:// URI from expo-audio) to `{orgId}/{memberId}/{uuid}.m4a` in the private
+ * voice-notes bucket — only the caller's own folder is writable (Storage RLS). Returns the object path.
+ */
+export async function uploadVoiceNote(orgId: ID, memberId: ID, uri: string): Promise<string> {
+  const db = requireSupabase();
+  const file = new File(uri); // expo-file-system File API
+  if (!file.exists) throw new RemoteError('Upload recording: file not found', 'not_found');
+  const bytes = await file.arrayBuffer();
+  if (bytes.byteLength === 0) throw new RemoteError('Upload recording: empty file', 'empty_recording');
+  if (bytes.byteLength > VOICE_MAX_BYTES) throw new RemoteError('Upload recording: too large', 'too_large');
+  const path = `${orgId}/${memberId}/${randomId()}.m4a`;
+  const { error } = await db.storage.from(VOICE_BUCKET).upload(path, bytes, { contentType: 'audio/mp4', upsert: false });
+  if (error) throw new RemoteError(`Upload recording: ${error.message}`, 'upload_failed');
+  return path;
+}
+
+export type VoiceTranscript = { transcript: string; language: string; aiRunId: ID | null };
+
+/** Server-side transcription (supabase/functions/transcribe). Error `code` is the function's error code. */
+export async function transcribeVoiceNote(orgId: ID, path: string): Promise<VoiceTranscript> {
+  const db = requireSupabase();
+  const { data, error } = await db.functions.invoke<VoiceTranscript>('transcribe', { body: { org_id: orgId, path } });
+  if (error) {
+    let code = 'transcription_failed';
+    const ctx = (error as { context?: unknown }).context;
+    if (ctx instanceof Response) {
+      const body = (await ctx.json().catch(() => null)) as { error?: unknown } | null;
+      if (typeof body?.error === 'string') code = body.error;
+    }
+    throw new RemoteError(`Transcribe: ${error.message}`, code);
+  }
+  if (!data || typeof data.transcript !== 'string') throw new RemoteError('Transcribe: empty response', 'transcription_failed');
+  return { transcript: data.transcript, language: data.language || 'Unknown', aiRunId: data.aiRunId ?? null };
+}
+
+/** Discards an unsaved recording. Recordings already attached to a saved note can't be deleted (Storage RLS). */
+export async function deleteVoiceNote(path: string): Promise<void> {
+  const db = requireSupabase();
+  const { error } = await db.storage.from(VOICE_BUCKET).remove([path]);
+  if (error) throw new RemoteError(`Delete recording: ${error.message}`, 'delete_failed');
 }

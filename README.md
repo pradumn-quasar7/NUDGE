@@ -73,12 +73,17 @@ no email codes, so sign in with the seeded accounts as described in [dev/local-s
 3. ✅ App ↔ backend — email-code sign-in, workspace creation and invites, cloud store, Realtime, AI extraction
    queued automatically for every event captured in the app (verified end to end against local Postgres)
 4. ✅ Event ingestion model — immutable `conversation_events`, idempotent `webhook_events`
-5. 🟡 AI extraction service — `ai-extract` edge function written and wired; needs a hosted project + `ANTHROPIC_API_KEY`
+5. ✅ AI extraction service — `ai-extract` on Gemini, triggered for every event captured in the app
 6. ✅ Promise Radar · 7. ✅ Follow-up inbox (+ scheduler, every 15 min via pg_cron) · 8. ✅ Search/copilot (server, with on-device fallback)
 9. 🟡 WhatsApp integration — signed, idempotent webhook written; needs a Meta app + number to go live
-10. ⬜ Push notifications · 11. ⬜ Security/audit hardening · 12. ⬜ Beta with 5–10 businesses
+10. ✅ Notifications — local promise reminders (1 h before due, quiet hours 9 pm–8 am) and server push via Expo
+    (`push-dispatch`; Android remote push activates once Firebase/FCM credentials are added to EAS)
+11. ⬜ Security/audit hardening · 12. 🟡 Beta — live on a hosted Supabase project (ap-south-1), Android APK via EAS
 
-**Next phase:** push notifications, real voice transcription, then a hosted Supabase project for beta.
+**Also in Phase 4:** real voice notes (record → private `voice-notes` storage → Gemini transcription, Hinglish-aware),
+AI on Google Gemini (`gemini-3.8-flash`), "save as note" when a statement is typed into an ask box.
+
+**Next phase:** Firebase for Android push, custom SMTP (sign-in emails with codes, no rate limit), WhatsApp go-live.
 
 ## Principles the code enforces
 

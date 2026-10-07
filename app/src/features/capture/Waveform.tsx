@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, View } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -10,13 +10,42 @@ const BARS: [number, number][] = [
 
 /**
  * Indigo voice waveform. While `active`, every bar breathes on its own rhythm; when idle the bars settle low.
- * Purely decorative — hidden from screen readers.
+ * Pass `level` (0…1, from microphone metering) to drive the bars from the real input instead; `null`/omitted
+ * keeps the decorative animation. Purely decorative — hidden from screen readers.
  */
-export function Waveform({ active = true, height = 96, bars = BARS }: { active?: boolean; height?: number; bars?: [number, number][] }) {
+export function Waveform({
+  active = true,
+  height = 96,
+  bars = BARS,
+  level,
+}: {
+  active?: boolean;
+  height?: number;
+  bars?: [number, number][];
+  level?: number | null;
+}) {
   const { c } = useTheme();
   const values = useState(() => bars.map(() => new Animated.Value(0.4)))[0];
+  const metered = active && typeof level === 'number';
+  const tick = useRef(0);
+
+  // Metered: each update nudges every bar toward the input level, with a gentle per-bar wobble so it reads as voice.
+  useEffect(() => {
+    if (!metered) return;
+    const native = Platform.OS !== 'web';
+    const t = (tick.current += 1);
+    const anims = values.map((v, i) => {
+      const wobble = 0.6 + 0.4 * Math.abs(Math.sin(t * 0.9 + i * 1.3));
+      const target = Math.min(1, Math.max(0.14, 0.14 + (level as number) * 0.86 * wobble));
+      return Animated.timing(v, { toValue: target, duration: 110, easing: Easing.out(Easing.quad), useNativeDriver: native });
+    });
+    const all = Animated.parallel(anims);
+    all.start();
+    return () => all.stop();
+  }, [metered, level, values]);
 
   useEffect(() => {
+    if (metered) return;
     const native = Platform.OS !== 'web';
     if (!active) {
       const settle = Animated.parallel(
@@ -40,7 +69,7 @@ export function Waveform({ active = true, height = 96, bars = BARS }: { active?:
       timers.forEach(clearTimeout);
       loops.forEach((l) => l.stop());
     };
-  }, [active, values]);
+  }, [active, metered, values]);
 
   return (
     <View

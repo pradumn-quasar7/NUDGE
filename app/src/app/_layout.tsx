@@ -10,6 +10,7 @@ import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { StoreProvider, useStore } from '@/data/store';
 import { SessionProvider } from '@/data/session';
 import { ToastProvider, useToast } from '@/components';
+import { NotificationsBridge } from '@/features/notifications';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -22,6 +23,7 @@ export default function RootLayout() {
           <StoreProvider>
             <ToastProvider>
               <SyncErrors />
+              <NotificationsBridge />
               <Navigator fontsLoaded={fontsLoaded} />
             </ToastProvider>
           </StoreProvider>

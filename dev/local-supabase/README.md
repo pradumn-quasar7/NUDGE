@@ -98,14 +98,17 @@ reads of every table the app uses; complete / reopen / snooze / hand off; `confi
 customer; `forget_fact` / `unforget_fact`; owner-only org, settings, integration and team
 operations (and their refusals for members); invite + `accept_member_invites`; private customers
 (`share_all_customers = false`); tenant isolation; the trigger doing nothing when Vault secrets
-are missing.
+are missing; voice notes — the `voice-notes` bucket and its own-folder policies (exercised as the user
+through psql, the way the Storage API runs them, since there is no `/storage/v1` here) and
+`save_capture(…, audio_path)` creating the `attachments` row.
 
 ## Not covered here
 
-- **Edge Functions** (`ai-extract`, `copilot`, `whatsapp-webhook`, `followup-scheduler`): need Deno /
+- **Edge Functions** (`ai-extract`, `copilot`, `transcribe`, `whatsapp-webhook`, `followup-scheduler`): need Deno /
   `supabase functions serve` and an Anthropic key. Here pg_net calls are only recorded.
 - **pg_cron**: not installed in Homebrew Postgres; the migration skips scheduling with a notice.
-- **Realtime**, **Storage** (only the schema/policies exist), real **Vault** encryption.
+- **Realtime**, the **Storage API** (`storage.buckets` / `storage.objects` / `storage.foldername()` and the
+  policies exist; uploads from the app need real Supabase), real **Vault** encryption.
 - **GoTrue** beyond the stub: confirmation emails, invites by email, rate limits, MFA.
 
 ## Run the app against the harness

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
+import { unregisterPush } from '@/features/notifications/push';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 /**
@@ -88,6 +89,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await supabase.from('profiles').update({ full_name: name }).eq('id', session.user.id);
       },
       async signOut() {
+        // Stop pushes for this account on this phone before the session goes away.
+        await unregisterPush(session?.access_token).catch(() => {});
         await supabase?.auth.signOut();
       },
     }),

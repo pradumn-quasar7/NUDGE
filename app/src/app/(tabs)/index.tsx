@@ -20,6 +20,7 @@ import {
   useToast,
 } from '@/components';
 import { NoCustomers } from '@/features/customer/CustomerRow';
+import { EnableRemindersCard } from '@/features/notifications';
 import { useMe, useStore } from '@/data/store';
 import { attention, customerById, openCommitments, pendingExtractions } from '@/data/selectors';
 import { dayDiff, firstName, greeting, inr, longDate, plural, relDay, shortDay, time } from '@/lib/format';
@@ -158,6 +159,8 @@ export default function Home() {
           </View>
         </AiCard>
       )}
+
+      <EnableRemindersCard />
 
       {calm && nextUp && nextUpCustomer && (
         <View style={{ gap: 12 }}>

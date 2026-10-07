@@ -8,7 +8,7 @@ export type Direction = "in" | "out" | "internal";
 export type FactKind = "preference" | "temporal" | "note";
 export type CommitmentStatus = "open" | "done" | "snoozed" | "dismissed";
 export type Promisor = "us" | "customer";
-export type AiStage = "extraction" | "copilot" | "summary" | "followup";
+export type AiStage = "extraction" | "copilot" | "summary" | "followup" | "transcription";
 export type AiRunStatus = "running" | "succeeded" | "failed" | "rejected" | "skipped";
 
 export type OrgRow = {

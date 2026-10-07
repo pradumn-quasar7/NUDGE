@@ -85,6 +85,17 @@ export function extractCapture(text: string, s: AppState, hintCustomerId?: ID, n
   };
 }
 
+/**
+ * Typed into an "ask" box, does this read like something to remember rather than a question?
+ * ("Ravi wants 20 chairs, I'll send the quote by Friday" → note; "What did I promise Ravi?" → question.)
+ */
+export function isLikelyNote(text: string): boolean {
+  const t = text.trim();
+  if (t.length < 12 || /\?\s*$/.test(t)) return false;
+  if (/^(who|what|when|where|why|how|which|whom|whose|did|do|does|is|are|was|were|can|could|should|will|would|has|have|show|list|tell|find|give|summari[sz]e|remind)\b/i.test(t)) return false;
+  return /\b(i'?ll|i will|we'?ll|i'?ve|wants?|needs?|asked|said|paid|ordered|promised|called|told|confirmed|agreed|prefers?|likes?|by (mon|tue|wed|thu|fri|sat|sun|tomorrow|today|next))/i.test(t) || t.split(/\s+/).length >= 6;
+}
+
 /* ───────────── Copilot ───────────── */
 
 export type CopilotRow = { customerId: ID; title: string; meta: string; tone?: 'warn' | 'ok' | 'neutral' };

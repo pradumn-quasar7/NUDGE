@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { ScrollView, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import {
+  AiCard,
   AiLabel,
   Button,
   Card,
+  CheckCircle,
   Chip,
   Dot,
   Icon,
@@ -21,13 +23,14 @@ import {
 } from '@/components';
 import { useStore } from '@/data/store';
 import type { Customer } from '@/data/types';
-import { type CopilotAnswer } from '@/lib/ai';
+import { isLikelyNote, type CopilotAnswer } from '@/lib/ai';
 import { useAsk } from '@/features/copilot/useAsk';
 import { firstName } from '@/lib/format';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/tokens';
 
-type Turn = { id: number; q: string; a?: CopilotAnswer };
+/** `note`: the person typed something to remember, not a question — offer to save it instead of answering. */
+type Turn = { id: number; q: string; a?: CopilotAnswer; kind?: 'question' | 'note'; saved?: boolean };
 
 /** 11 · Customer AI assistant — ask anything about one person; every answer shows where it came from. */
 export default function AskAboutCustomer() {
@@ -48,6 +51,8 @@ function Missing() {
 }
 
 function Conversation({ customer, initial }: { customer: Customer; initial?: string }) {
+  const { actions } = useStore();
+  const toast = useToast();
   const { c } = useTheme();
   const close = useSheetClose();
   const first = firstName(customer.name);
@@ -55,7 +60,7 @@ function Conversation({ customer, initial }: { customer: Customer; initial?: str
   const [draft, setDraft] = useState('');
   const scroll = useRef<ScrollView>(null);
 
-  const pending = turns.find((t) => !t.a);
+  const pending = turns.find((t) => t.kind !== 'note' && !t.a);
   const askNudge = useAsk();
   useEffect(() => {
     if (!pending) return;
@@ -73,7 +78,7 @@ function Conversation({ customer, initial }: { customer: Customer; initial?: str
     const qq = text.trim();
     if (!qq || pending) return;
     setDraft('');
-    setTurns((all) => [...all, { id: all.length, q: qq }]);
+    setTurns((all) => [...all, { id: all.length, q: qq, kind: isLikelyNote(qq) ? 'note' : 'question' }]);
   };
 
   const asked = new Set(turns.map((t) => t.q.toLowerCase()));
@@ -113,7 +118,18 @@ function Conversation({ customer, initial }: { customer: Customer; initial?: str
             >
               <Txt color={c.onInv}>{t.q}</Txt>
             </View>
-            {t.a ? (
+            {t.kind === 'note' ? (
+              <NoteOffer
+                first={first}
+                saved={!!t.saved}
+                onSave={() => {
+                  actions.addNote(customer.id, t.q);
+                  setTurns((all) => all.map((x) => (x.id === t.id ? { ...x, saved: true } : x)));
+                  toast({ text: `Saved to ${first}’s memory`, icon: 'spark' });
+                }}
+                onAsk={() => setTurns((all) => all.map((x) => (x.id === t.id ? { ...x, kind: 'question' } : x)))}
+              />
+            ) : t.a ? (
               <AnswerView a={t.a} customer={customer} />
             ) : (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} accessibilityLiveRegion="polite">
@@ -263,5 +279,29 @@ function AnswerView({ a, customer }: { a: CopilotAnswer; customer: Customer }) {
 
       <Txt variant="meta">{a.evidence}</Txt>
     </View>
+  );
+}
+
+/** Shown when an "ask" reads like a note: keep it in memory instead of answering it. */
+function NoteOffer({ first, saved, onSave, onAsk }: { first: string; saved: boolean; onSave: () => void; onAsk: () => void }) {
+  if (saved) {
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <CheckCircle />
+        <Txt variant="s" tone="t1" style={{ flex: 1 }}>
+          Saved to {first}’s memory. If it contains a promise, I’ll ask you to confirm it.
+        </Txt>
+      </View>
+    );
+  }
+  return (
+    <AiCard>
+      <AiLabel>This sounds like a note</AiLabel>
+      <Txt variant="t">Save it to {first}’s memory? Nudge will remember it and spot any promise in it.</Txt>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Button label="Save as note" flex onPress={onSave} />
+        <Button variant="ghost" label="Ask instead" icon={null} onPress={onAsk} />
+      </View>
+    </AiCard>
   );
 }

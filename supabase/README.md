@@ -9,10 +9,12 @@ Postgres schema + Row Level Security, a demo seed, and four Deno Edge Functions:
 | `migrations/20261007000003_onboarding.sql` | `profiles`, invite linking on sign-up, `create_organization()` RPC |
 | `migrations/20261007000004_app_rpc.sql` | `confirm_extraction()`, `purge_customer()`, `ingest_event()` and `followup_candidates()` (service-only) |
 | `migrations/20261007000005_automation.sql` | pg_net trigger → `ai-extract` for app-authored events, pg_cron → `followup-scheduler`, per-member notification read state, the app write paths in §5 |
+| `migrations/20261007000006_voice.sql` | Private `voice-notes` Storage bucket + own-folder policies, `ai_stage 'transcription'`, `save_capture(…, audio_path)` attaches the recording to the note |
 | `seed.sql` | The "Brightline Fixtures" demo workspace from `app/src/data/seed.ts`, with timestamps relative to `now()` |
 | `functions/whatsapp-webhook` | WhatsApp Cloud API webhook: verify, dedupe, store raw event, start extraction |
 | `functions/ai-extract` | Raw event → Claude extraction → validated facts + **pending** commitment proposals |
 | `functions/copilot` | "What did I promise?": answers only from the user's own records, with evidence |
+| `functions/transcribe` | Voice note in `voice-notes` → verbatim transcript (Gemini, inline audio; Hinglish kept as spoken). Returns it to the app only; `ai_runs` records path/language/length, never the words |
 | `functions/followup-scheduler` | Cron job: due promises → contact-policy check → suggestions + notifications (never sends) |
 | `functions/_shared` | CORS, Supabase clients, auth checks, Claude client, time zone helpers, row types |
 
@@ -88,12 +90,13 @@ supabase secrets set \
 supabase functions deploy whatsapp-webhook
 supabase functions deploy ai-extract
 supabase functions deploy copilot
+supabase functions deploy transcribe
 supabase functions deploy followup-scheduler
 ```
 
 `verify_jwt` per function comes from `config.toml`: off for `whatsapp-webhook` (HMAC-signed by
 Meta), `ai-extract` and `followup-scheduler` (they require the service-role key, checked in code),
-on for `copilot` (user JWT, also re-verified in code).
+on for `copilot` and `transcribe` (user JWT, also re-verified in code).
 
 **Auth settings for production:** turn **email confirmations on**. Invitations are linked to
 accounts by confirmed email address only.
@@ -258,6 +261,10 @@ Error codes raised by the RPCs: `42501` not allowed, `23514` check failed, `2350
 | Connect / pause integration (owner) | direct | `update integration_accounts set status = 'connected' \| 'paused' \| 'available', detail, last_sync_at` | "integrations: owners update"; column grant `name, status, detail, last_sync_at`. `external_account_id`, `token_secret_id`, `metadata` are service-role only |
 | Delete customer and all history | RPC | `purge_customer(customer uuid)` → `boolean` | SECURITY DEFINER; owner or `members_can_delete` |
 | "What did I promise?" | Edge Function | `functions.invoke('copilot', { body: { org_id, question, customer_id } })` | user JWT, RLS-scoped reads |
+| Upload a voice note | Storage | `storage.from('voice-notes').upload('{org_id}/{my member id}/{uuid}.m4a', bytes, { contentType: 'audio/mp4' })` (private bucket, 15 MiB, `audio/*`) | policies "voice notes: upload own / read own": first folder an org I'm an **active** member of, second folder **my** member id, nothing deeper. No UPDATE (never overwritten) |
+| Transcribe it | Edge Function | `functions.invoke('transcribe', { body: { org_id, path } })` → `{ transcript, language, aiRunId }`. Errors: `path_not_allowed` 403, `recording_not_found` 404, `recording_too_large` 413 (> 14 MiB, Gemini's inline limit), `transcription_failed` 502, `transcription_rejected` 422, `transcription_unavailable` 501 (provider isn't Gemini) | user JWT + active membership; path must be the caller's own folder; downloaded with the service role |
+| Save it with the note | RPC | `save_capture(…, audio_path text default null)` → also `"attachment_id"`. Inserts `attachments (storage_bucket 'voice-notes', storage_path, event_id = the note, mime_type, size_bytes, uploaded_by_member_id)` | path must be `{org}/{caller's member id}/{file}` (`22023`), the object must exist and be readable by the caller (`P0002`), one note per recording (`23505`) |
+| Discard an unsaved recording | Storage | `storage.from('voice-notes').remove([path])` | "voice notes: delete own unsaved": own folder and **not** attached to a note (a saved note's audio is history) |
 
 Realtime: `commitments`, `extractions`, `notifications`, `notification_reads`, `conversation_events`
 and `followup_suggestions` are in `supabase_realtime` (RLS applies to subscribers). Views are not
@@ -272,7 +279,8 @@ streamed — on a `notifications` / `notification_reads` change, re-select from 
 - pgvector semantic retrieval (`semanticCandidates()` in `functions/copilot` is the extension point).
 - Customer summary regeneration (`ai_stage = 'summary'`), follow-up ranking beyond due dates.
 - Push notifications (Expo push tokens), outbound WhatsApp sending after explicit user approval,
-  WhatsApp status callbacks, voice-note transcription.
+  WhatsApp status callbacks. Voice notes: playback in the app, and `purge_customer()` should also remove
+  that customer's `voice-notes` objects (via their `attachments` rows).
 - `purge_customer()` should also delete Storage objects under `{org_id}/{customer_id}/` and scrub
   that customer's rows in `audit_logs`.
 - Per-user rate limits on `copilot`.
