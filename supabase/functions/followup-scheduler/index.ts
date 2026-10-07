@@ -110,7 +110,7 @@ function plan(c: FollowupCandidate, org: OrgRow | undefined, now: Date): Plan {
 Deno.serve(async (req) => {
   try {
     if (req.method !== "POST") throw new HttpError(405, "method_not_allowed");
-    requireServiceRole(req);
+    await requireServiceRole(req);
     const db = serviceClient();
     const now = new Date();
 

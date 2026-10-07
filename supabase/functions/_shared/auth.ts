@@ -28,10 +28,54 @@ function bearer(req: Request): string | null {
  * and pg_cron with the service-role key. verify_jwt is off for them in config.toml,
  * so this check is the gate.
  */
-export function requireServiceRole(req: Request): void {
+/**
+ * Internal endpoints (pg_net trigger, pg_cron): only the project's service key may call them.
+ *
+ * Hosted projects can expose the service key in two forms — the legacy service_role JWT and the
+ * newer `sb_secret_…` keys — and the one stored in Vault need not be the one injected here. Accept:
+ *   1. an exact match with SUPABASE_SERVICE_ROLE_KEY or any SUPABASE_SECRET_KEYS value, or
+ *   2. a JWT whose payload says role = service_role AND that PostgREST accepts (it verifies the
+ *      signature), so a forged or user token can never pass.
+ */
+export async function requireServiceRole(req: Request): Promise<void> {
   const token = bearer(req);
-  if (!token || !timingSafeEqual(token, env("SUPABASE_SERVICE_ROLE_KEY"))) {
-    throw new HttpError(401, "unauthorized");
+  if (!token) throw new HttpError(401, "unauthorized");
+  if (knownServiceKeys().some((k) => timingSafeEqual(token, k))) return;
+  if (jwtRole(token) === "service_role") {
+    const res = await fetch(`${env("SUPABASE_URL")}/rest/v1/ai_runs?select=id&limit=1`, {
+      headers: { apikey: token, Authorization: `Bearer ${token}` },
+    }).catch(() => null);
+    await res?.body?.cancel().catch(() => {});
+    if (res?.ok) return;
+  }
+  throw new HttpError(401, "unauthorized");
+}
+
+function knownServiceKeys(): string[] {
+  const keys = [Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""];
+  const raw = Deno.env.get("SUPABASE_SECRET_KEYS");
+  if (raw) {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      const values = Array.isArray(parsed) ? parsed : typeof parsed === "object" && parsed ? Object.values(parsed) : [];
+      for (const v of values) if (typeof v === "string") keys.push(v);
+    } catch {
+      keys.push(raw);
+    }
+  }
+  return keys.filter((k) => k.length > 0);
+}
+
+/** Reads the `role` claim of a JWT without trusting it (callers must still verify the signature). */
+function jwtRole(token: string): string | undefined {
+  const part = token.split(".")[1];
+  if (!part) return undefined;
+  try {
+    const json = atob(part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "="));
+    const role = (JSON.parse(json) as { role?: unknown }).role;
+    return typeof role === "string" ? role : undefined;
+  } catch {
+    return undefined;
   }
 }
 

@@ -80,8 +80,17 @@ async function generate(body: Record<string, unknown>): Promise<GenerateResponse
       signal: AbortSignal.timeout(120_000),
     });
     if (res.ok) return (await res.json()) as GenerateResponse;
-    const info = describeStatus(res.status);
-    await res.body?.cancel();
+    const base = describeStatus(res.status);
+    // Keep Google's machine-readable reason (e.g. PERMISSION_DENIED:SERVICE_DISABLED) — never the message text.
+    let reason = "";
+    try {
+      const body = (await res.json()) as { error?: { status?: string; details?: { reason?: string }[] } };
+      const why = body.error?.details?.find((d) => d.reason)?.reason;
+      reason = [body.error?.status, why].filter(Boolean).join(":");
+    } catch {
+      await res.body?.cancel().catch(() => {});
+    }
+    const info = { ...base, code: reason ? `${base.code}:${res.status}:${reason}` : base.code };
     if (!info.retryable || attempt >= 2) throw new GeminiHttpError(info);
     await new Promise((r) => setTimeout(r, 800 * 2 ** attempt + Math.random() * 300));
     attempt++;

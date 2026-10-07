@@ -719,7 +719,7 @@ async function runExtraction(eventId: string, force: boolean): Promise<RunResult
 Deno.serve(async (req) => {
   try {
     if (req.method !== "POST") throw new HttpError(405, "method_not_allowed");
-    requireServiceRole(req);
+    await requireServiceRole(req);
     const body = (await req.json().catch(() => null)) as { event_id?: unknown; force?: unknown } | null;
     const eventId = typeof body?.event_id === "string" ? body.event_id : "";
     if (!UUID_RE.test(eventId)) throw new HttpError(400, "invalid_event_id");
