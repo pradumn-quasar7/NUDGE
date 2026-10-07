@@ -9,6 +9,7 @@ import type { CustomerEvent, Extraction, ExtractionField } from '@/data/types';
 import { DAY_MS, shortDay, startOfDay, time12 } from '@/lib/format';
 import { channelLabel, dueDay } from '@/features/promises';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useNow } from '@/lib/useNow';
 
 /**
  * 17 · AI extraction confirmation — "I noticed a commitment".
@@ -112,10 +113,10 @@ function Confirm({ extraction: x }: { extraction: Extraction }) {
   const toast = useToast();
   const close = useSheetClose();
   const [fields, setFields] = useState<ExtractionField[]>(x.fields);
+  const now = useNow();
 
   // Due options: the suggested date first, then today / tomorrow / next weekday — Edit cycles through them.
   const dueOptions = useMemo(() => {
-    const now = Date.now();
     const base = x.dueAt ?? startOfDay(now) + 18 * 3_600_000;
     const d = new Date(base);
     const hm = (d.getHours() * 60 + d.getMinutes()) * 60_000;
@@ -124,7 +125,7 @@ function Confirm({ extraction: x }: { extraction: Extraction }) {
     while ([0, 6].includes(new Date(t0 + (1 + wd) * DAY_MS).getDay())) wd++;
     const list = [base, t0 + hm, t0 + DAY_MS + hm, t0 + (1 + wd) * DAY_MS + hm].filter((t) => t > now);
     return list.filter((t, i) => list.findIndex((u) => startOfDay(u) === startOfDay(t)) === i);
-  }, [x.dueAt]);
+  }, [x.dueAt, now]);
   const [dueIdx, setDueIdx] = useState(0);
   const dueAt = dueOptions[dueIdx] ?? x.dueAt;
 

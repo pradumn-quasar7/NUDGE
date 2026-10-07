@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Platform, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,7 +23,8 @@ import {
 import { useStore } from '@/data/store';
 import { customerById, eventsFor, openCommitments } from '@/data/selectors';
 import type { ID } from '@/data/types';
-import { answer, type CopilotRow } from '@/lib/ai';
+import { type CopilotAnswer, type CopilotRow } from '@/lib/ai';
+import { useAnswer } from '@/features/copilot/useAsk';
 import { dueLabel, firstName, inr, shortDay } from '@/lib/format';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/tokens';
@@ -41,7 +42,6 @@ const recentQueries: string[] = [];
 const openCustomer = (id: ID) => router.push({ pathname: '/customer/[id]', params: { id } });
 
 export default function Search() {
-  const { state } = useStore();
   const { c } = useTheme();
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -71,7 +71,7 @@ export default function Search() {
     setTimeout(() => input.current?.focus(), 0);
   };
 
-  const result = useMemo(() => (submitted ? answer(submitted, state) : null), [submitted, state]);
+  const result = useAnswer(submitted);
   const pinned = result?.actions.find((a) => a.kind === 'ai');
   const listMode = !!result && !!result.rows && (result.rows.length >= 2 || !!result.understoodAs);
   const cancel = () => (router.canGoBack() ? router.back() : router.replace('/'));
@@ -363,7 +363,7 @@ function LiveResults({ query, onAsk }: { query: string; onAsk: () => void }) {
 
 const AI_PATTERN = /\b(usually|likely|tends? to|typically)\b/i;
 
-function NaturalResults({ result, pinnedLabel }: { result: NonNullable<ReturnType<typeof answer>>; pinnedLabel?: string }) {
+function NaturalResults({ result, pinnedLabel }: { result: CopilotAnswer; pinnedLabel?: string }) {
   const lead = result.text.map((s) => s.t).join('');
   const short = lead.length <= 24;
   const rest = result.actions.filter((a) => a.label !== pinnedLabel);

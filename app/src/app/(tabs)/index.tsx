@@ -19,10 +19,12 @@ import {
   Txt,
   useToast,
 } from '@/components';
+import { NoCustomers } from '@/features/customer/CustomerRow';
 import { useMe, useStore } from '@/data/store';
-import { attention, customerById, followUps, openCommitments, pendingExtractions } from '@/data/selectors';
+import { attention, customerById, openCommitments, pendingExtractions } from '@/data/selectors';
 import { dayDiff, firstName, greeting, inr, longDate, plural, relDay, shortDay, time } from '@/lib/format';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useNow } from '@/lib/useNow';
 
 /**
  * Home — "What do I need to know or do right now?"
@@ -33,7 +35,7 @@ export default function Home() {
   const { c } = useTheme();
   const me = useMe();
   const toast = useToast();
-  const now = Date.now();
+  const now = useNow();
   const { urgent, waiting, count } = attention(state, now);
   const priority = urgent[0];
   const priorityCustomer = customerById(state, priority?.customerId);
@@ -46,6 +48,8 @@ export default function Home() {
     .slice(0, 3);
   const extractions = pendingExtractions(state);
   const calm = count === 0;
+  // A brand-new workspace: invite the first step instead of showing insights it can't back up yet.
+  const fresh = state.customers.filter((c) => !c.archived).length === 0;
 
   return (
     <Screen
@@ -171,6 +175,9 @@ export default function Home() {
         </View>
       )}
 
+      {fresh && <NoCustomers />}
+
+      {!fresh && (
       <AiCard>
         <AiLabel>Business insight</AiLabel>
         <Txt style={{ fontSize: 16, lineHeight: 23 }}>
@@ -180,6 +187,7 @@ export default function Home() {
           <Button variant="ghost" label="Explore" style={{ paddingHorizontal: 0 }} onPress={() => router.push('/insights')} />
         </View>
       </AiCard>
+      )}
 
       {overnight.length > 0 && (
         <View style={{ gap: 4 }}>

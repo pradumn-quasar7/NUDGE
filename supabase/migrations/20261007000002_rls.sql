@@ -107,6 +107,32 @@ as $$
   );
 $$;
 
+-- Same rule evaluated on a customers row's own columns. Used by the policies ON
+-- customers: can_see_customer(id) re-reads the row, and a row being inserted is
+-- not visible to that query yet, so INSERT … RETURNING (supabase-js
+-- .insert().select()) would fail the SELECT policy.
+create or replace function public.can_see_customer_row(org uuid, owner_member uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.organization_members m
+    join public.organizations o on o.id = m.org_id
+    where m.org_id = org
+      and m.user_id = (select auth.uid())
+      and m.status = 'active'
+      and (
+        m.role = 'owner'
+        or coalesce((o.settings ->> 'share_all_customers')::boolean, true)
+        or owner_member = m.id
+      )
+  );
+$$;
+
 -- Cast helper for storage paths ('{org_id}/…'); returns null instead of raising.
 create or replace function public.try_uuid(value text)
 returns uuid
@@ -225,7 +251,7 @@ create policy "members: owners remove" on public.organization_members
 
 create policy "customers: read visible" on public.customers
   for select to authenticated
-  using (public.can_see_customer(id));
+  using (public.can_see_customer_row(org_id, owner_member_id));
 
 create policy "customers: members create" on public.customers
   for insert to authenticated
@@ -233,12 +259,12 @@ create policy "customers: members create" on public.customers
 
 create policy "customers: update visible" on public.customers
   for update to authenticated
-  using (public.can_see_customer(id))
+  using (public.can_see_customer_row(org_id, owner_member_id))
   with check (public.is_org_member(org_id));
 
 create policy "customers: delete when allowed" on public.customers
   for delete to authenticated
-  using (public.can_see_customer(id) and public.can_delete_history(org_id));
+  using (public.can_see_customer_row(org_id, owner_member_id) and public.can_delete_history(org_id));
 
 -- ───────────── Customer-scoped tables (same shape) ─────────────
 -- Composite FKs guarantee row.org_id = customer.org_id, so can_see_customer()

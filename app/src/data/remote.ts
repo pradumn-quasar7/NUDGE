@@ -1,6 +1,7 @@
 import type { CopilotAnswer } from '@/lib/ai';
 import { requireSupabase } from '@/lib/supabase';
 import type {
+  AppNotification,
   Channel,
   Commitment,
   CommitmentStatus,
@@ -12,6 +13,10 @@ import type {
   ExtractionField,
   FactKind,
   ID,
+  InboxBucket,
+  InboxItem,
+  Integration,
+  IntegrationStatus,
   Member,
   MemberRole,
   Organization,
@@ -19,8 +24,7 @@ import type {
 } from './types';
 
 /**
- * Supabase repository. Same surface as the local store's actions (src/data/store.tsx) so the
- * store can switch to it when `isSupabaseConfigured` — not wired into the UI yet.
+ * Supabase repository used by the store in cloud mode (src/data/store.tsx) — same surface as its actions.
  *
  * Rows are snake_case (supabase/migrations), app types camelCase. Timestamps cross the boundary
  * as ISO strings and become epoch milliseconds here. Every call runs as the signed-in user, so
@@ -346,7 +350,7 @@ export async function listEvents(orgId: ID, opts: { customerId?: ID; since?: num
 
 export async function listFacts(orgId: ID, customerId?: ID): Promise<CustomerFact[]> {
   const db = requireSupabase();
-  let q = db.from('customer_facts').select(FACT_COLS).eq('org_id', orgId).is('superseded_by', null);
+  let q = db.from('customer_facts').select(FACT_COLS).eq('org_id', orgId).is('superseded_by', null).is('forgotten_at', null);
   if (customerId) q = q.eq('customer_id', customerId);
   return must(await q.order('created_at', { ascending: false }).returns<FactRow[]>(), 'Load facts').map(toFact);
 }
@@ -505,4 +509,303 @@ export async function askCopilot(orgId: ID, question: string, customerId?: ID): 
   if (error) throw new RemoteError(`Ask: ${error.message}`, 'copilot_failed');
   if (!data) throw new RemoteError('Ask: empty response', 'copilot_failed');
   return data;
+}
+
+/* ───────────── Notifications, inbox, integrations (Phase 3) ───────────── */
+
+type NotificationRow = {
+  id: string;
+  kind: AppNotification['kind'];
+  customer_id: string | null;
+  title: AppNotification['title'];
+  meta: string;
+  actions: AppNotification['actions'] | null;
+  read: boolean;
+  created_at: string;
+};
+
+type SuggestionRow = {
+  id: string;
+  customer_id: string;
+  bucket: InboxBucket;
+  what: string;
+  why: string;
+  why_tone: InboxItem['whyTone'];
+  why_ai: boolean;
+  amount: number | string | null;
+  action_label: string;
+  action_variant: InboxItem['action']['variant'];
+  at: string;
+  resolved_at: string | null;
+};
+
+type IntegrationRow = {
+  id: string;
+  provider: Integration['kind'];
+  name: string;
+  status: IntegrationStatus;
+  detail: string;
+  last_sync_at: string | null;
+};
+
+export function toNotification(r: NotificationRow): AppNotification {
+  return {
+    id: r.id,
+    kind: r.kind,
+    customerId: opt(r.customer_id),
+    title: Array.isArray(r.title) ? r.title : [{ t: String(r.title) }],
+    meta: r.meta,
+    at: ms(r.created_at),
+    read: r.read,
+    actions: opt(r.actions),
+  };
+}
+
+export function toInboxItem(r: SuggestionRow): InboxItem {
+  return {
+    id: r.id,
+    customerId: r.customer_id,
+    bucket: r.resolved_at ? 'done' : r.bucket,
+    what: r.what,
+    why: r.why,
+    whyTone: r.why_tone,
+    whyAi: r.why_ai || undefined,
+    amount: r.amount === null ? undefined : Number(r.amount),
+    action: { label: r.action_label, variant: r.action_variant },
+    at: ms(r.at),
+  };
+}
+
+export function toIntegration(r: IntegrationRow): Integration {
+  return { id: r.id, name: r.name, kind: r.provider, status: r.status, detail: r.detail, lastSyncAt: msOpt(r.last_sync_at) };
+}
+
+export async function listNotifications(orgId: ID, limit = 50): Promise<AppNotification[]> {
+  const db = requireSupabase();
+  const rows = must(
+    await db
+      // Read state is per member (notification_reads), exposed by this security_invoker view.
+      .from('notification_feed')
+      .select('id, kind, customer_id, title, meta, actions, read, created_at')
+      .eq('org_id', orgId)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+      .returns<NotificationRow[]>(),
+    'Load notifications',
+  );
+  return rows.map(toNotification);
+}
+
+/** Open follow-up suggestions plus anything resolved in the last week (the inbox "Done" bucket). */
+export async function listInbox(orgId: ID): Promise<InboxItem[]> {
+  const db = requireSupabase();
+  const weekAgo = iso(Date.now() - 7 * 86_400_000);
+  const rows = must(
+    await db
+      .from('followup_suggestions')
+      .select('id, customer_id, bucket, what, why, why_tone, why_ai, amount, action_label, action_variant, at, resolved_at')
+      .eq('org_id', orgId)
+      .or(`resolved_at.is.null,resolved_at.gte.${weekAgo}`)
+      .order('at', { ascending: false })
+      .returns<SuggestionRow[]>(),
+    'Load inbox',
+  );
+  return rows.map(toInboxItem);
+}
+
+export async function listIntegrations(orgId: ID): Promise<Integration[]> {
+  const db = requireSupabase();
+  const rows = must(
+    await db
+      .from('integration_accounts')
+      .select('id, provider, name, status, detail, last_sync_at')
+      .eq('org_id', orgId)
+      .order('created_at')
+      .returns<IntegrationRow[]>(),
+    'Load integrations',
+  );
+  return rows.map(toIntegration);
+}
+
+/** Everything the app shows for one workspace, loaded in parallel. */
+export async function loadWorkspaceData(orgId: ID) {
+  const [customers, events, facts, commitments, extractions, notifications, inbox, integrations] = await Promise.all([
+    listCustomers(orgId, { includeArchived: true }),
+    listEvents(orgId, { limit: 500 }),
+    listFacts(orgId),
+    listCommitments(orgId, { status: ['open', 'done', 'snoozed'] }),
+    listExtractions(orgId, 'pending'),
+    listNotifications(orgId),
+    listInbox(orgId),
+    listIntegrations(orgId),
+  ]);
+  return { customers, events, facts, commitments, extractions, notifications, inbox, integrations };
+}
+
+/* ───────────── Writes (Phase 3) ───────────── */
+
+async function ok(res: { error: { message: string; code?: string } | null }, what: string) {
+  if (res.error) throw new RemoteError(`${what}: ${res.error.message}`, res.error.code);
+}
+
+/** RLS turns a forbidden UPDATE into "0 rows" rather than an error — treat that as not allowed. */
+async function affected(res: PgResult<{ id: string }[]>, what: string) {
+  const rows = must(res, what);
+  if (!rows.length) throw new RemoteError(`${what}: not allowed`, '42501');
+}
+
+/** Joins any workspace this email was invited to (no-op when there are none). */
+export async function acceptInvites(): Promise<number> {
+  const db = requireSupabase();
+  return (must(await db.rpc('accept_member_invites'), 'Accept invites') as number) ?? 0;
+}
+
+export async function markNotificationsRead(orgId: ID, ids?: ID[]): Promise<void> {
+  const db = requireSupabase();
+  await ok(await db.rpc('mark_notifications_read', { ids: ids?.length ? ids : null, org_id: orgId }), 'Mark read');
+}
+
+export async function resolveSuggestion(id: ID): Promise<void> {
+  const db = requireSupabase();
+  await affected(
+    await db.from('followup_suggestions').update({ resolved_at: iso(Date.now()), bucket: 'done' }).eq('id', id).select('id'),
+    'Resolve',
+  );
+}
+
+/** Owner-only: business profile. */
+export async function updateOrganization(orgId: ID, patch: { name?: string; sells?: string; handles?: string[]; channels?: Channel[] }): Promise<void> {
+  const db = requireSupabase();
+  const row: Record<string, unknown> = {};
+  if (patch.name !== undefined) row.name = patch.name.trim();
+  if (patch.sells !== undefined) row.sells = patch.sells.trim() || null;
+  if (patch.handles) row.handles = patch.handles;
+  if (patch.channels) row.channels = patch.channels;
+  if (!Object.keys(row).length) return;
+  await affected(await db.from('organizations').update(row).eq('id', orgId).select('id'), 'Save workspace');
+}
+
+/** Owner-only: merges a settings patch server-side (validated by a check constraint). */
+export async function updateSettings(orgId: ID, patch: Partial<Settings>): Promise<void> {
+  const db = requireSupabase();
+  const body: Record<string, unknown> = {};
+  if (patch.shareAllCustomers !== undefined) body.share_all_customers = patch.shareAllCustomers;
+  if (patch.handOffWhenAway !== undefined) body.hand_off_when_away = patch.handOffWhenAway;
+  if (patch.membersCanDelete !== undefined) body.members_can_delete = patch.membersCanDelete;
+  if (patch.notifications !== undefined) body.notifications = patch.notifications;
+  await ok(await db.rpc('update_workspace_settings', { org_id: orgId, patch: body }), 'Save settings');
+}
+
+export async function setIntegrationStatus(id: ID, status: IntegrationStatus): Promise<void> {
+  const db = requireSupabase();
+  const row: Record<string, unknown> = { status };
+  if (status === 'connected') row.last_sync_at = iso(Date.now());
+  await affected(await db.from('integration_accounts').update(row).eq('id', id).select('id'), 'Update integration');
+}
+
+export async function inviteMember(orgId: ID, email: string): Promise<void> {
+  const db = requireSupabase();
+  await ok(await db.rpc('invite_member', { org_id: orgId, email: email.trim().toLowerCase() }), 'Invite');
+}
+
+export async function setCustomerArchived(id: ID, archived: boolean): Promise<void> {
+  const db = requireSupabase();
+  await affected(
+    await db.from('customers').update({ archived_at: archived ? iso(Date.now()) : null }).eq('id', id).select('id'),
+    archived ? 'Remove' : 'Restore',
+  );
+}
+
+/** Tombstone, not a delete: audited, reversible, and the AI never re-learns it. */
+export async function forgetFact(id: ID): Promise<void> {
+  const db = requireSupabase();
+  await ok(await db.rpc('forget_fact', { fact_id: id }), 'Forget');
+}
+
+export async function unforgetFact(id: ID): Promise<void> {
+  const db = requireSupabase();
+  await ok(await db.rpc('unforget_fact', { fact_id: id }), 'Undo forget');
+}
+
+export async function handOffCommitment(id: ID, memberId: ID): Promise<void> {
+  const db = requireSupabase();
+  await affected(await db.from('commitments').update({ owner_member_id: memberId }).eq('id', id).select('id'), 'Hand off');
+}
+
+/** Voice/note capture in one transaction: the note event, an optional promise and facts, all linked to the note. */
+export async function saveCapture(input: {
+  customerId: ID;
+  body: string;
+  kind: 'note' | 'voice';
+  promise?: { title: string; dueAt: number };
+  facts?: string[];
+}): Promise<{ eventId: ID; commitmentId: ID | null }> {
+  const db = requireSupabase();
+  const res = must(
+    await db.rpc('save_capture', {
+      customer_id: input.customerId,
+      body: input.body,
+      kind: input.kind,
+      promise_title: input.promise?.title ?? null,
+      promise_due_at: input.promise ? iso(input.promise.dueAt) : null,
+      facts: input.facts?.length ? input.facts : null,
+    }),
+    'Save capture',
+  ) as { event_id: ID; commitment_id: ID | null };
+  return { eventId: res.event_id, commitmentId: res.commitment_id };
+}
+
+export async function addCommitment(
+  orgId: ID,
+  input: { customerId: ID; title: string; dueAt: number; ownerId: ID; sourceEventId?: ID; quote?: string; quoteBy?: string },
+): Promise<void> {
+  const db = requireSupabase();
+  await ok(
+    await db.from('commitments').insert({
+      org_id: orgId,
+      customer_id: input.customerId,
+      title: input.title,
+      owner_member_id: input.ownerId,
+      due_at: iso(input.dueAt),
+      status: 'open',
+      promisor: 'us',
+      source_event_id: input.sourceEventId ?? null,
+      quote: input.quote ?? null,
+      quote_by: input.quoteBy ?? null,
+      confidence: 0.85,
+    }),
+    'Add promise',
+  );
+}
+
+export async function addFacts(orgId: ID, customerId: ID, texts: string[], sourceEventId?: ID): Promise<void> {
+  if (!texts.length) return;
+  const db = requireSupabase();
+  await ok(
+    await db.from('customer_facts').insert(
+      texts.map((text) => ({ org_id: orgId, customer_id: customerId, kind: 'temporal', text, source_event_id: sourceEventId ?? null, confidence: 0.8 })),
+    ),
+    'Remember',
+  );
+}
+
+/** A message the user sent from the app (reply, payment link…), recorded as an immutable outbound event. */
+export async function addOutboundMessage(
+  orgId: ID,
+  input: { customerId: ID; channel: Channel; title: string; body?: string; authorId: ID },
+): Promise<void> {
+  const db = requireSupabase();
+  await ok(
+    await db.from('conversation_events').insert({
+      org_id: orgId,
+      customer_id: input.customerId,
+      kind: 'message',
+      channel: input.channel,
+      direction: 'out',
+      title: input.title,
+      body: input.body ?? null,
+      author_member_id: input.authorId,
+    }),
+    'Record message',
+  );
 }

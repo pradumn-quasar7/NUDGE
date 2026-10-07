@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Animated,
   Platform,
@@ -8,8 +8,7 @@ import {
   View,
   type StyleProp,
   type TextInputProps,
-  type ViewStyle,
-} from 'react-native';
+  type ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -18,6 +17,7 @@ import { initials, nameHash } from '@/lib/format';
 import { Icon, type IconName } from './Icon';
 import { Tap } from './Pressable';
 import { Txt } from './Text';
+import { useAnimatedValue } from '@/lib/useAnimatedValue';
 
 /* ───────────── Avatar — initials on six muted tints, assigned by name hash ───────────── */
 
@@ -525,7 +525,7 @@ export function TimelineGlyph({ icon, tone }: { icon: IconName; tone?: 'ok' | 'w
 
 export function Skeleton({ w = '100%', h = 12, r = 8, style }: { w?: number | `${number}%`; h?: number; r?: number; style?: StyleProp<ViewStyle> }) {
   const { c } = useTheme();
-  const o = useRef(new Animated.Value(0.6)).current;
+  const o = useAnimatedValue(0.6);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -542,7 +542,7 @@ export function Skeleton({ w = '100%', h = 12, r = 8, style }: { w?: number | `$
 /** Spark pulse — AI processing, 1.6s loop. */
 export function SparkPulse({ size = 22 }: { size?: number }) {
   const { c } = useTheme();
-  const o = useRef(new Animated.Value(1)).current;
+  const o = useAnimatedValue(1);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([

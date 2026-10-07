@@ -21,6 +21,7 @@ import { customerById, eventById } from '@/data/selectors';
 import type { Integration } from '@/data/types';
 import { firstName, shortDay } from '@/lib/format';
 import { CHANNEL_SOURCE, syncedLabel } from '@/features/settings/ui';
+import { useNow } from '@/lib/useNow';
 
 const MODEL = [
   { title: 'People', body: 'Who each customer is, how they like to talk, what they’ve bought.' },
@@ -37,9 +38,9 @@ const SOURCE_KINDS: { kind: Integration['kind']; label: string }[] = [
 
 /** What Nudge remembers — the memory model, counts, sources and recent facts with "Forget". */
 export default function MemorySettings() {
-  const { state, actions, dispatch } = useStore();
+  const { state, actions } = useStore();
   const toast = useToast();
-  const now = Date.now();
+  const now = useNow();
 
   const facts = state.facts;
   const counts = [
@@ -56,7 +57,7 @@ export default function MemorySettings() {
     toast({
       text: 'Forgotten',
       icon: 'check',
-      action: fact ? { label: 'Undo', onPress: () => dispatch({ type: 'addFacts', facts: [fact] }) } : undefined,
+      action: fact ? { label: 'Undo', onPress: () => actions.unforgetFact(fact) } : undefined,
     });
   };
 

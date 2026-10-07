@@ -229,6 +229,7 @@ function validate(
     event: EventRow;
     knownFactRefs: Map<string, FactRow>;
     existingTitles: Set<string>;
+    forgottenTexts: Set<string>;
   },
 ): Validated {
   const eventAt = new Date(ctx.event.occurred_at).getTime();
@@ -276,7 +277,7 @@ function validate(
       continue;
     }
     const key = normalizeForMatch(text);
-    if (factSeen.has(key) || knownTexts.has(key)) {
+    if (factSeen.has(key) || knownTexts.has(key) || ctx.forgottenTexts.has(key)) {
       dropped.facts++;
       continue;
     }
@@ -386,7 +387,7 @@ async function runExtraction(eventId: string, force: boolean): Promise<RunResult
 
   // 2. Context (all scoped to the event's org)
   const nowIso = new Date().toISOString();
-  const [orgRes, customerRes, membersRes, contextRes, factsRes, commitmentsRes, pendingRes] = await Promise.all([
+  const [orgRes, customerRes, membersRes, contextRes, factsRes, commitmentsRes, pendingRes, forgottenRes, ownRes] = await Promise.all([
     db.from("organizations").select("id, name, sells, timezone, settings").eq("id", event.org_id).single<OrgRow>(),
     db
       .from("customers")
@@ -414,6 +415,7 @@ async function runExtraction(eventId: string, force: boolean): Promise<RunResult
       .eq("org_id", event.org_id)
       .eq("customer_id", event.customer_id)
       .is("superseded_by", null)
+      .is("forgotten_at", null)
       .or(`valid_until.is.null,valid_until.gt."${nowIso}"`)
       .order("created_at", { ascending: false })
       .limit(40)
@@ -434,6 +436,23 @@ async function runExtraction(eventId: string, force: boolean): Promise<RunResult
       .eq("status", "pending")
       .limit(30)
       .returns<{ title: string }[]>(),
+    // Facts a person told Nudge to forget: never re-extract them.
+    db
+      .from("customer_facts")
+      .select("text")
+      .eq("org_id", event.org_id)
+      .eq("customer_id", event.customer_id)
+      .not("forgotten_at", "is", null)
+      .limit(200)
+      .returns<{ text: string }[]>(),
+    // A person already turned this event into a promise (app capture flow).
+    db
+      .from("commitments")
+      .select("id")
+      .eq("org_id", event.org_id)
+      .eq("source_event_id", event.id)
+      .limit(1)
+      .returns<{ id: string }[]>(),
   ]);
   if (orgRes.error || customerRes.error) throw new HttpError(500, "context_lookup_failed");
   const org = orgRes.data;
@@ -531,7 +550,16 @@ async function runExtraction(eventId: string, force: boolean): Promise<RunResult
   }
 
   // 6. Validation
-  const v = validate(output, { event, knownFactRefs, existingTitles });
+  const v = validate(output, {
+    event,
+    knownFactRefs,
+    existingTitles,
+    forgottenTexts: new Set((forgottenRes.data ?? []).map((f) => normalizeForMatch(f.text))),
+  });
+  if (ownRes.data?.length) {
+    v.dropped.commitments += v.commitments.length;
+    v.commitments = [];
+  }
 
   // 7. Memory write
   let factsWritten = 0;

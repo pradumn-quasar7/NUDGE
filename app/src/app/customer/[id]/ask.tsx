@@ -21,7 +21,8 @@ import {
 } from '@/components';
 import { useStore } from '@/data/store';
 import type { Customer } from '@/data/types';
-import { answer, type CopilotAnswer } from '@/lib/ai';
+import { type CopilotAnswer } from '@/lib/ai';
+import { useAsk } from '@/features/copilot/useAsk';
 import { firstName } from '@/lib/format';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/tokens';
@@ -47,25 +48,26 @@ function Missing() {
 }
 
 function Conversation({ customer, initial }: { customer: Customer; initial?: string }) {
-  const { state } = useStore();
   const { c } = useTheme();
   const close = useSheetClose();
   const first = firstName(customer.name);
   const [turns, setTurns] = useState<Turn[]>([{ id: 0, q: initial?.trim() || `What did I promise ${first}?` }]);
   const [draft, setDraft] = useState('');
   const scroll = useRef<ScrollView>(null);
-  const stateRef = useRef(state);
-  stateRef.current = state;
 
   const pending = turns.find((t) => !t.a);
+  const askNudge = useAsk();
   useEffect(() => {
     if (!pending) return;
-    const t = setTimeout(() => {
-      const a = answer(pending.q, stateRef.current, customer.id);
-      setTurns((all) => all.map((x) => (x.id === pending.id ? { ...x, a } : x)));
-    }, 550);
-    return () => clearTimeout(t);
-  }, [pending, customer.id]);
+    let live = true;
+    const minDelay = new Promise((res) => setTimeout(res, 550));
+    void Promise.all([askNudge(pending.q, customer.id), minDelay]).then(([a]) => {
+      if (live) setTurns((all) => all.map((x) => (x.id === pending.id ? { ...x, a } : x)));
+    });
+    return () => {
+      live = false;
+    };
+  }, [pending, customer.id, askNudge]);
 
   const ask = (text: string) => {
     const qq = text.trim();

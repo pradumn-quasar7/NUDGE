@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip, Icon, IconButton, SparkPulse, Txt } from '@/components';
 import { useStore } from '@/data/store';
 import { openCommitments } from '@/data/selectors';
-import { answer, SUGGESTED, type CopilotAnswer } from '@/lib/ai';
+import { SUGGESTED, type CopilotAnswer } from '@/lib/ai';
+import { useAsk } from '@/features/copilot/useAsk';
 import { monthName } from '@/lib/format';
 import { useTheme } from '@/theme/ThemeProvider';
 import { AnswerView } from '@/features/copilot/AnswerView';
@@ -17,7 +18,7 @@ import { AskInput, ChatBubble } from '@/features/copilot/Chat';
  * `?q=` asks immediately.
  */
 
-type Turn = { id: string; q: string; a: CopilotAnswer; ready: boolean };
+type Turn = { id: string; q: string; a?: CopilotAnswer; ready: boolean };
 
 const THINK_MS = 650;
 
@@ -31,16 +32,21 @@ export default function Copilot() {
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const autoAsked = useRef(false);
 
+  const askNudge = useAsk();
   const ask = (q: string) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    setTurns((t) => [...t, { id, q, a: answer(q, state), ready: false }]);
-    timers.current.push(setTimeout(() => setTurns((t) => t.map((x) => (x.id === id ? { ...x, ready: true } : x))), THINK_MS));
+    setTurns((t) => [...t, { id, q, ready: false }]);
+    // Keep the short "thinking" beat even when the answer is instant, so it reads as considered.
+    const minDelay = new Promise((res) => timers.current.push(setTimeout(res, THINK_MS)));
+    void Promise.all([askNudge(q), minDelay]).then(([a]) => setTurns((t) => t.map((x) => (x.id === id ? { ...x, a, ready: true } : x))));
   };
 
   useEffect(() => {
     if (autoAsked.current) return;
     if (typeof params.q === 'string' && params.q.trim()) {
       autoAsked.current = true;
+      // Deep link (?q=…) asks once on open.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       ask(params.q.trim());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -110,7 +116,7 @@ export default function Copilot() {
               {turns.map((t) => (
                 <View key={t.id} style={{ gap: 22 }}>
                   <ChatBubble text={t.q} />
-                  {t.ready ? (
+                  {t.ready && t.a ? (
                     <AnswerView answer={t.a} />
                   ) : (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} accessibilityLabel="Nudge is thinking">

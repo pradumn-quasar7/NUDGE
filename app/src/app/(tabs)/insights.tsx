@@ -6,6 +6,7 @@ import { commitmentRisk, insights, openCommitments } from '@/data/selectors';
 import { inr, monthName, plural } from '@/lib/format';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/tokens';
+import { useNow } from '@/lib/useNow';
 
 /**
  * 20 Insights — observations Nudge can stand behind, each with something to do. Not a dashboard.
@@ -20,7 +21,7 @@ const OBSERVATION = {
 export default function Insights() {
   const { state } = useStore();
   const { c } = useTheme();
-  const now = Date.now();
+  const now = useNow();
   const k = insights(state);
   const lastMonth = monthName(new Date(new Date(now).getFullYear(), new Date(now).getMonth() - 1, 1).getTime());
   const peak = Math.max(...k.trend) / 0.78;

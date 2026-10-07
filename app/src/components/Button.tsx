@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { ActivityIndicator, Animated, Easing, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radius } from '@/theme/tokens';
 import { Icon, type IconName } from './Icon';
 import { Tap } from './Pressable';
 import { Txt } from './Text';
+import { useAnimatedValue } from '@/lib/useAnimatedValue';
 
 /**
  * Buttons — primary actions are ink, not accent; indigo is reserved for anything the AI does.
@@ -93,7 +94,7 @@ export function Button({
 }
 
 export function Spinner({ color, size = 16 }: { color: string; size?: number }) {
-  const spin = useRef(new Animated.Value(0)).current;
+  const spin = useAnimatedValue(0);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.timing(spin, { toValue: 1, duration: 800, easing: Easing.linear, useNativeDriver: Platform.OS !== 'web' }),

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -8,7 +8,8 @@ import { useFonts, Geist_400Regular, Geist_500Medium, Geist_600SemiBold } from '
 import { GeistMono_400Regular, GeistMono_500Medium } from '@expo-google-fonts/geist-mono';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { StoreProvider, useStore } from '@/data/store';
-import { ToastProvider } from '@/components';
+import { SessionProvider } from '@/data/session';
+import { ToastProvider, useToast } from '@/components';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -17,11 +18,14 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <StoreProvider>
-          <ToastProvider>
-            <Navigator fontsLoaded={fontsLoaded} />
-          </ToastProvider>
-        </StoreProvider>
+        <SessionProvider>
+          <StoreProvider>
+            <ToastProvider>
+              <SyncErrors />
+              <Navigator fontsLoaded={fontsLoaded} />
+            </ToastProvider>
+          </StoreProvider>
+        </SessionProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );
@@ -43,6 +47,8 @@ function Navigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg }, animation: 'fade_from_bottom', animationDuration: 220 }}>
         <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
         <Stack.Screen name="welcome" options={{ animation: 'fade' }} />
+        <Stack.Screen name="sign-in" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="onboarding/about" options={{ animation: 'slide_from_right' }} />
         {['sell', 'channels', 'connect', 'ready'].map((step) => (
           <Stack.Screen key={step} name={`onboarding/${step}`} options={{ animation: 'slide_from_right' }} />
         ))}
@@ -55,4 +61,17 @@ function Navigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       </Stack>
     </>
   );
+}
+
+/** Cloud mode: a save that failed is never silent — say so, reassure, offer a retry. */
+function SyncErrors() {
+  const { sync, reload } = useStore();
+  const toast = useToast();
+  const shown = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (sync.status !== 'error' || !sync.error || shown.current === sync.error) return;
+    shown.current = sync.error;
+    toast({ text: `${sync.error.split('.')[0]}. Your data is safe.`, icon: 'error', action: { label: 'Retry', onPress: () => void reload() } });
+  }, [sync, reload, toast]);
+  return null;
 }

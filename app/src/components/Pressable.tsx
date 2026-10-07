@@ -1,7 +1,7 @@
-import { useRef } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { motion } from '@/theme/tokens';
+import { useAnimatedValue } from '@/lib/useAnimatedValue';
 
 /** Tap feedback: 120ms ease-out, scale .97 (Design system · Motion). */
 export function Tap({
@@ -19,7 +19,7 @@ export function Tap({
   scale?: number;
   haptic?: boolean;
 }) {
-  const v = useRef(new Animated.Value(1)).current;
+  const v = useAnimatedValue(1);
   // Layout keys belong on the outer Pressable so `flex`, `alignSelf` and absolute positioning work as expected.
   const flat = StyleSheet.flatten(style) ?? {};
   const { flex, flexGrow, flexShrink, flexBasis, alignSelf, position, top, left, right, bottom, margin, marginTop, marginBottom, marginLeft, marginRight, marginHorizontal, marginVertical, zIndex, ...inner } = flat;

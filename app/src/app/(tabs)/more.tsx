@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { Avatar, Button, Card, Group, Icon, LargeTitle, Screen, SectionLabel, SettingsRow, Txt } from '@/components';
+import { useSession } from '@/data/session';
 import { useMe, useStore } from '@/data/store';
 import { firstName, plural } from '@/lib/format';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -12,6 +13,8 @@ const PREF_LABEL = { system: 'System', light: 'Light', dark: 'Dark' } as const;
 
 /** 24 · More — plain grouped lists for the quiet corners. */
 export default function More() {
+  const session = useSession();
+  const cloud = session.mode === 'cloud';
   const { state, actions } = useStore();
   const { c, pref } = useTheme();
   const me = useMe();
@@ -67,20 +70,36 @@ export default function More() {
       </View>
 
       <View style={{ alignItems: 'center', gap: 2, marginTop: 8 }}>
-        <Button variant="ghost" size="sm" label="Reset demo data" onPress={() => setConfirmReset(true)} />
-        <Txt variant="meta">Nudge · demo workspace</Txt>
+        {cloud ? (
+          <>
+            <Button variant="ghost" size="sm" label="Sign out" onPress={() => setConfirmReset(true)} />
+            <Txt variant="meta">Signed in as {session.email}</Txt>
+          </>
+        ) : (
+          <>
+            <Button variant="ghost" size="sm" label="Reset demo data" onPress={() => setConfirmReset(true)} />
+            <Txt variant="meta">Nudge · demo workspace</Txt>
+          </>
+        )}
       </View>
 
       <ConfirmSheet
         open={confirmReset}
-        title="Reset demo data?"
-        body="Every customer, promise and setting goes back to the original demo, and you’ll start again from the welcome screen."
-        confirmLabel="Reset demo data"
-        danger
+        title={cloud ? 'Sign out?' : 'Reset demo data?'}
+        body={
+          cloud
+            ? 'Your workspace stays safe on the server. Sign back in any time with a code sent to your email.'
+            : 'Every customer, promise and setting goes back to the original demo, and you’ll start again from the welcome screen.'
+        }
+        confirmLabel={cloud ? 'Sign out' : 'Reset demo data'}
+        danger={!cloud}
         onClose={() => setConfirmReset(false)}
         onConfirm={() => {
-          actions.reset();
-          router.replace('/welcome');
+          if (cloud) void session.signOut().then(() => router.replace('/welcome'));
+          else {
+            actions.reset();
+            router.replace('/welcome');
+          }
         }}
       />
     </Screen>

@@ -51,12 +51,19 @@ export default function NewCustomer() {
   };
   const valid = !errors.name && !errors.phone && !errors.email;
 
-  const save = () => {
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
     setTouched({ name: true, phone: true, email: true });
-    if (!valid) return;
-    const customer = actions.addCustomer({ name, company, phone, email });
-    toast({ text: 'Customer added', icon: 'check' });
-    router.replace(`/customer/${customer.id}`);
+    if (!valid || saving) return;
+    setSaving(true);
+    try {
+      const customer = await actions.addCustomer({ name, company, phone, email });
+      toast({ text: 'Customer added', icon: 'check' });
+      router.replace(`/customer/${customer.id}`);
+    } catch {
+      toast({ text: 'Couldn’t add the customer. Nothing was lost — try again.', icon: 'error' });
+      setSaving(false);
+    }
   };
 
   return (
@@ -123,7 +130,7 @@ export default function NewCustomer() {
       </Field>
 
       <View style={{ gap: 8, marginTop: 4 }}>
-        <Button label="Save" size="lg" full disabled={!name.trim()} onPress={save} />
+        <Button label="Save" size="lg" full disabled={!name.trim()} loading={saving} onPress={() => void save()} />
         <Button variant="ghost" label="Import from WhatsApp instead" full onPress={() => router.push('/integrations')} />
       </View>
     </Screen>

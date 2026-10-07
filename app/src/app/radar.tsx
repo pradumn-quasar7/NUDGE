@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { Animated, Easing, Platform, View } from 'react-native';
+import { useState } from 'react';
+import { Animated, Easing, View } from 'react-native';
 import { router, type Href } from 'expo-router';
 import {
   Avatar,
@@ -28,9 +28,10 @@ import { dueLabel, plural, shortDay } from '@/lib/format';
 import { channelLabel, PromiseRow, RadarArt, RadarClearArt, SnoozeSheet, useCompletePromise } from '@/features/promises';
 import { useTheme } from '@/theme/ThemeProvider';
 import { motion } from '@/theme/tokens';
+import { useNow } from '@/lib/useNow';
+import { useAnimatedValue } from '@/lib/useAnimatedValue';
 
 const rank: Record<Risk, number> = { overdue: 0, at_risk: 1, on_track: 2, done: 3 };
-const native = Platform.OS !== 'web';
 const ease = Easing.bezier(...motion.easing);
 
 /**
@@ -44,7 +45,7 @@ export default function PromiseRadar() {
   const complete = useCompletePromise();
   const [snoozing, setSnoozing] = useState<Commitment | null>(null);
   const [showLater, setShowLater] = useState(false);
-  const now = Date.now();
+  const now = useNow();
   const { attention, later, doneThisWeek } = radar(state, now);
   const ranked = [...attention].sort((a, b) => rank[commitmentRisk(a, now)] - rank[commitmentRisk(b, now)] || a.dueAt - b.dueAt);
   const [featured, ...rest] = ranked;
@@ -202,9 +203,9 @@ function FeaturedPromise({
   const source = eventById(state, p.sourceEventId);
   const risk = riskBadge[commitmentRisk(p, now)];
   const [done, setDone] = useState(false);
-  const check = useRef(new Animated.Value(0)).current;
-  const collapse = useRef(new Animated.Value(1)).current;
-  const height = useRef(0);
+  const check = useAnimatedValue(0);
+  const collapse = useAnimatedValue(1);
+  const [height, setHeight] = useState(0);
   const [measured, setMeasured] = useState(false);
 
   const finish = () => {
@@ -222,12 +223,12 @@ function FeaturedPromise({
   return (
     <Animated.View
       onLayout={(e) => {
-        if (!measured) height.current = e.nativeEvent.layout.height;
+        if (!measured) setHeight(e.nativeEvent.layout.height);
       }}
       style={[
         { opacity: collapse },
         measured && {
-          height: collapse.interpolate({ inputRange: [0, 1], outputRange: [0, height.current] }),
+          height: collapse.interpolate({ inputRange: [0, 1], outputRange: [0, height] }),
           overflow: 'hidden',
           marginBottom: collapse.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }),
         },

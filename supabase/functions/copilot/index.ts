@@ -256,7 +256,7 @@ async function customerHistory(ctx: Ctx, customerId: string): Promise<string> {
     ctx.db.from("conversation_events").select(EVENT_COLS).eq("org_id", ctx.org.id).eq("customer_id", customerId)
       .order("occurred_at", { ascending: false }).limit(40).returns<EventRow[]>(),
     ctx.db.from("customer_facts").select(FACT_COLS).eq("org_id", ctx.org.id).eq("customer_id", customerId)
-      .is("superseded_by", null).order("created_at", { ascending: false }).limit(30).returns<FactRow[]>(),
+      .is("superseded_by", null).is("forgotten_at", null).order("created_at", { ascending: false }).limit(30).returns<FactRow[]>(),
     ctx.db.from("commitments").select(COMMITMENT_COLS).eq("org_id", ctx.org.id).eq("customer_id", customerId)
       .order("due_at", { ascending: false }).limit(30).returns<CommitmentRow[]>(),
   ]);
@@ -320,7 +320,7 @@ async function initialRecords(ctx: Ctx, question: string, scopeCustomerId: strin
   ].slice(0, 100);
   const { data: facts } = factCustomerIds.length
     ? await db.from("customer_facts").select(FACT_COLS).eq("org_id", org.id).in("customer_id", factCustomerIds)
-      .is("superseded_by", null).order("created_at", { ascending: false }).limit(150).returns<FactRow[]>()
+      .is("superseded_by", null).is("forgotten_at", null).order("created_at", { ascending: false }).limit(150).returns<FactRow[]>()
     : { data: [] as FactRow[] };
 
   const sections: string[] = [];

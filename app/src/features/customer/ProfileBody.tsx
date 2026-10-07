@@ -23,6 +23,7 @@ import type { Customer, ID } from '@/data/types';
 import { dueLabel, firstName, inr, monthYear, plural, shortDay } from '@/lib/format';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Timeline, timelineEntries } from './Timeline';
+import { useNow } from '@/lib/useNow';
 
 /* ───────────── Helpers ───────────── */
 
@@ -146,7 +147,7 @@ export function WhatMatters({ customer }: { customer: Customer }) {
 /* ───────────── Open commitments ───────────── */
 
 export function OpenCommitments({ state, customer, withQuote }: { state: AppState; customer: Customer; withQuote?: boolean }) {
-  const now = Date.now();
+  const now = useNow();
   const open = customerCommitments(state, customer.id);
   return (
     <View style={{ gap: 10 }}>

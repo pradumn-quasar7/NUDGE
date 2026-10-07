@@ -1,7 +1,6 @@
 import { Text, type TextProps, type TextStyle } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, type as typeRamp, type TypeVariant } from '@/theme/tokens';
-import type { Palette } from '@/theme/tokens';
+import { fonts, type as typeRamp, type Palette, type TypeVariant } from '@/theme/tokens';
 
 export type Tone = 't1' | 't2' | 't3' | 'acc' | 'ok' | 'warn' | 'bad' | 'onInv' | 'onAcc';
 

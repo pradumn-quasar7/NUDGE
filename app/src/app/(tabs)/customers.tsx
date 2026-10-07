@@ -25,6 +25,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/tokens';
 import { CustomerRow, NoCustomers } from '@/features/customer/CustomerRow';
 import { ProfileBody } from '@/features/customer/ProfileBody';
+import { useNow } from '@/lib/useNow';
 
 type Filter = 'all' | 'needs' | 'active' | 'quiet';
 
@@ -38,8 +39,8 @@ function matches(c: Customer, q: string) {
 }
 
 function useSections(state: AppState, filter: Filter, query: string) {
+  const now = useNow();
   return useMemo(() => {
-    const now = Date.now();
     const { needing, rest } = needsYou(state, now);
     const all = [...needing, ...rest];
     const isQuiet = (c: Customer) => {
@@ -59,7 +60,7 @@ function useSections(state: AppState, filter: Filter, query: string) {
         { title: 'Recently active', items: f(rest) },
       ];
     return { total: all.length, needCount: needing.length, sections: sections.filter((s) => s.items.length), first: all[0] };
-  }, [state, filter, query]);
+  }, [state, filter, query, now]);
 }
 
 function SearchField({

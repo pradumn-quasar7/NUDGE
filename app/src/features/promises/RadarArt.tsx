@@ -5,6 +5,7 @@ import { commitmentRisk } from '@/data/selectors';
 import type { Commitment } from '@/data/types';
 import { DAY_MS, nameHash } from '@/lib/format';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useNow } from '@/lib/useNow';
 
 type Blip = { id: string; x: number; y: number; r: number; fill: string; opacity: number };
 
@@ -18,13 +19,15 @@ export function RadarArt({
   attention,
   later,
   size = 104,
-  now = Date.now(),
+  now: nowProp,
 }: {
   attention: Commitment[];
   later: Commitment[];
   size?: number;
   now?: number;
 }) {
+  const tick = useNow();
+  const now = nowProp ?? tick;
   const { c, scheme } = useTheme();
   const R = size / 2;
   const blips: Blip[] = [];

@@ -1,11 +1,16 @@
 import { Redirect, Tabs } from 'expo-router';
 import { FloatingTabBar, Rail, useIsTablet } from '@/components';
+import { useSession } from '@/data/session';
 import { useStore } from '@/data/store';
 
 export default function TabsLayout() {
-  const { state } = useStore();
+  const { state, hasWorkspace } = useStore();
+  const session = useSession();
   const isTablet = useIsTablet();
-  if (!state.onboarded) return <Redirect href="/welcome" />;
+  if (session.mode === 'cloud') {
+    if (!session.userId) return <Redirect href="/welcome" />;
+    if (!hasWorkspace) return <Redirect href="/onboarding/about" />;
+  } else if (!state.onboarded) return <Redirect href="/welcome" />;
   return (
     <Tabs
       screenOptions={{ headerShown: false, tabBarPosition: isTablet ? 'left' : 'bottom', animation: 'fade' }}

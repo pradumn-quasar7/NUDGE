@@ -1,14 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { Redirect, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AiCard, AiLabel, Avatar, Dot, Icon, Tap, Txt, useIsTablet } from '@/components';
+import { useSession } from '@/data/session';
 import { useStore } from '@/data/store';
 import { Glow } from '@/features/onboarding/Glow';
 import { OnboardingCta } from '@/features/onboarding/Header';
 import { resetDraft } from '@/features/onboarding/draft';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radius } from '@/theme/tokens';
+import { useAnimatedValue } from '@/lib/useAnimatedValue';
 
 const native = Platform.OS !== 'web';
 /** The splash plays once per app launch — coming back to Welcome from step 1 skips it. */
@@ -21,12 +23,13 @@ let splashPlayed = false;
  */
 export default function Welcome() {
   const { state, actions } = useStore();
+  const session = useSession();
   // Decide once on mount; after "I already have an account" we navigate explicitly.
   const [alreadyOnboarded] = useState(state.onboarded);
   const reduceMotion = useReduceMotion();
   const [splash, setSplash] = useState(!splashPlayed);
-  const splashO = useRef(new Animated.Value(splashPlayed ? 0 : 1)).current;
-  const content = useRef(new Animated.Value(splashPlayed ? 1 : 0)).current;
+  const splashO = useAnimatedValue(splashPlayed ? 0 : 1);
+  const content = useAnimatedValue(splashPlayed ? 1 : 0);
 
   useEffect(() => {
     if (!splash) return;
@@ -44,10 +47,19 @@ export default function Welcome() {
 
   const start = () => {
     resetDraft();
+    if (session.mode === 'cloud') {
+      // New people sign in first (email code); the About step then creates their workspace.
+      router.push(session.userId ? '/onboarding/about' : '/sign-in');
+      return;
+    }
     router.push('/onboarding/sell');
   };
   const signIn = () => {
-    actions.onboard({});
+    if (session.mode === 'cloud') {
+      router.push('/sign-in');
+      return;
+    }
+    void actions.onboard({});
     router.replace('/');
   };
 
@@ -237,7 +249,7 @@ function Float({
   still: boolean;
   style: { left?: number; right?: number; top: number; width: number; rotate?: string };
 }) {
-  const v = useRef(new Animated.Value(0)).current;
+  const v = useAnimatedValue(0);
   useEffect(() => {
     if (still) return;
     const loop = Animated.loop(

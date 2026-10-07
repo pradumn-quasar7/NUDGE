@@ -4,20 +4,21 @@ import { useStore } from '@/data/store';
 import type { Integration } from '@/data/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { HealthyDot, IntegrationTile, PAUSED_NOUN, syncedLabel, upTo } from '@/features/settings/ui';
+import { useNow } from '@/lib/useNow';
 
 /** 23 · Integrations — honest status for every connection. */
 export default function Integrations() {
   const { state, actions } = useStore();
   const { c } = useTheme();
   const toast = useToast();
-  const now = Date.now();
+  const now = useNow();
 
   const paused = state.integrations.filter((i) => i.status === 'paused');
   const connected = state.integrations.filter((i) => i.status === 'connected');
   const available = state.integrations.filter((i) => i.status === 'available');
 
   const connect = (i: Integration, verb: string) => {
-    actions.setIntegration(i.id, { status: 'connected', lastSyncAt: Date.now() });
+    actions.setIntegration(i.id, { status: 'connected' });
     toast({ text: `${i.name} ${verb}`, icon: 'check' });
   };
 

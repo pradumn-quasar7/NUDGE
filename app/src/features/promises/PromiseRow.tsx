@@ -5,19 +5,22 @@ import { commitmentRisk, riskBadge } from '@/data/selectors';
 import { useStore } from '@/data/store';
 import type { Commitment, Customer, ID } from '@/data/types';
 import { promiseMeta } from './format';
+import { useNow } from '@/lib/useNow';
 
 /** A promise in a grouped card: avatar · title + due meta · status badge. */
 export function PromiseRow({
   commitment,
   customer,
   onPress,
-  now = Date.now(),
+  now: nowProp,
 }: {
   commitment: Commitment;
   customer?: Customer;
   onPress?: () => void;
   now?: number;
 }) {
+  const tick = useNow();
+  const now = nowProp ?? tick;
   const risk = riskBadge[commitmentRisk(commitment, now)];
   return (
     <Tap

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Platform, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
-import { Card, CheckCircle, Icon, Num, Screen, Sep, Txt } from '@/components';
+import { Card, CheckCircle, Icon, Num, Screen, Sep, Txt, useToast } from '@/components';
+import { useSession } from '@/data/session';
 import { useMe, useStore } from '@/data/store';
 import { openCommitments } from '@/data/selectors';
 import { getDraft, resetDraft, useDraft } from '@/features/onboarding/draft';
@@ -10,10 +11,13 @@ import { FOOTER_SPACE, OnboardingCta, OnboardingFooter } from '@/features/onboar
 import { firstName } from '@/lib/format';
 import { useTheme } from '@/theme/ThemeProvider';
 import { motion } from '@/theme/tokens';
+import { useAnimatedValue } from '@/lib/useAnimatedValue';
 
 /** 06 · You're ready — what Nudge already found, and what it is still reading. */
 export default function Ready() {
-  const { state, actions } = useStore();
+  const { state, actions, hasWorkspace } = useStore();
+  const session = useSession();
+  const toast = useToast();
   const { c, scheme } = useTheme();
   const me = useMe();
   const { width, height } = useWindowDimensions();
@@ -26,9 +30,19 @@ export default function Ready() {
   const pct = useLearning();
   const done = pct >= 100;
 
-  const goHome = () => {
-    const { sells, handles, channels } = getDraft();
-    actions.onboard({ sells: sells.trim() || state.org.sells, handles, channels });
+  const fresh = session.mode === 'cloud' && !hasWorkspace;
+  const [busy, setBusy] = useState(false);
+  const goHome = async () => {
+    if (busy) return;
+    const { sells, handles, channels, businessName, ownerName } = getDraft();
+    setBusy(true);
+    try {
+      await actions.onboard({ name: businessName, sells: sells.trim() || state.org.sells, handles, channels }, ownerName);
+    } catch {
+      toast({ text: 'Couldn’t create your workspace. Check your connection and try again.', icon: 'error' });
+      setBusy(false);
+      return;
+    }
     resetDraft();
     if (router.canDismiss()) router.dismissAll();
     router.replace('/');
@@ -52,7 +66,7 @@ export default function Ready() {
       contentStyle={{ paddingTop: 52, paddingBottom: FOOTER_SPACE + 24 }}
       footer={
         <OnboardingFooter>
-          <OnboardingCta label="Go to Home" onPress={goHome} />
+          <OnboardingCta label="Go to Home" loading={busy} onPress={() => void goHome()} />
           <Txt variant="meta" center style={{ marginTop: 4 }}>
             You can keep using Nudge while it learns.
           </Txt>
@@ -74,28 +88,42 @@ export default function Ready() {
           <Icon name="spark" size={26} color={c.onAcc} />
         </View>
         <Txt variant="h1" accessibilityRole="header" style={{ fontSize: 36, lineHeight: 40, letterSpacing: -1.08 }}>
-          You’re ready, {firstName(me?.name ?? 'there')}.
+          You’re ready, {firstName(me?.name || getDraft().ownerName || 'there')}.
         </Txt>
         <Txt variant="body">We’ll start learning how your business works. Most of it is already here.</Txt>
       </View>
 
+      {fresh ? (
+        // A new cloud workspace has nothing to read yet — say what happens next instead of showing zeros.
+        <Card padding={0} style={{ paddingVertical: 6, paddingHorizontal: 18 }}>
+          <Row label={`Workspace: ${getDraft().businessName || 'your business'}`} value="" />
+          <Sep />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 58 }}>
+            <ReadingDot />
+            <Txt style={{ flex: 1 }} color={c.accText}>
+              Connect WhatsApp or add a customer to start remembering
+            </Txt>
+          </View>
+        </Card>
+      ) : (
       <Card padding={0} style={{ paddingVertical: 6, paddingHorizontal: 18 }}>
-        <Row label="Found customers" value={String(customers)} />
-        <Sep />
-        <Row label="Open promises" value={String(promises)} />
-        <Sep />
-        <View
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 58 }}
-          accessibilityLiveRegion="polite"
-          accessibilityLabel={done ? `Read ${conversations} conversations` : `Reading ${conversations} conversations, ${pct} percent`}
-        >
-          {done ? <CheckCircle /> : <ReadingDot />}
-          <Txt style={{ flex: 1 }} color={done ? c.t1 : c.accText} numberOfLines={1}>
-            {done ? `Read ${conversations} conversations` : `Reading ${conversations} conversations…`}
-          </Txt>
-          <Num variant="meta">{pct}%</Num>
-        </View>
-      </Card>
+          <Row label="Found customers" value={String(customers)} />
+          <Sep />
+          <Row label="Open promises" value={String(promises)} />
+          <Sep />
+          <View
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 58 }}
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={done ? `Read ${conversations} conversations` : `Reading ${conversations} conversations, ${pct} percent`}
+          >
+            {done ? <CheckCircle /> : <ReadingDot />}
+            <Txt style={{ flex: 1 }} color={done ? c.t1 : c.accText} numberOfLines={1}>
+              {done ? `Read ${conversations} conversations` : `Reading ${conversations} conversations…`}
+            </Txt>
+            <Num variant="meta">{pct}%</Num>
+          </View>
+        </Card>
+      )}
     </Screen>
   );
 }
@@ -113,7 +141,7 @@ function Row({ label, value }: { label: string; value: string }) {
 /** Pending step: indigo ring with a breathing dot (AI is working). */
 function ReadingDot() {
   const { c } = useTheme();
-  const o = useRef(new Animated.Value(1)).current;
+  const o = useAnimatedValue(1);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([

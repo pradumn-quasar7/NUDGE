@@ -34,6 +34,7 @@ import {
   useCompletePromise,
 } from '@/features/promises';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useNow } from '@/lib/useNow';
 
 /** 14 · Promise detail — what was promised, to whom, by when, and the exact words it came from. */
 export default function PromiseDetail() {
@@ -44,7 +45,7 @@ export default function PromiseDetail() {
   const [snoozing, setSnoozing] = useState<Commitment | null>(null);
   const [handOff, setHandOff] = useState(false);
   const [options, setOptions] = useState(false);
-  const now = Date.now();
+  const now = useNow();
   const p = state.commitments.find((x) => x.id === id);
 
   if (!p) {

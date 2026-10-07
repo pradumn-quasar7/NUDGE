@@ -5,3 +5,7 @@ node_modules/
 supabase/.branches
 supabase/.temp
 .claude/
+
+# dev/local-supabase harness (throwaway Postgres cluster, logs, keys)
+dev/local-supabase/.data/
+*.log

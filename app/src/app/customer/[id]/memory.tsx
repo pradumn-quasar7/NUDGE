@@ -26,6 +26,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { gutter } from '@/theme/tokens';
 import { GLYPH, Timeline, timelineEntries } from '@/features/customer/Timeline';
 import { WhatMatters } from '@/features/customer/ProfileBody';
+import { useNow } from '@/lib/useNow';
 
 type Tab = 'summary' | 'timeline' | 'files';
 type KindFilter = 'all' | 'conversations' | 'money' | 'notes';
@@ -52,6 +53,7 @@ export default function CustomerMemory() {
   const rowY = useRef<Record<string, number>>({});
   const customer = state.customers.find((x) => x.id === id);
 
+  const now = useNow();
   if (!customer) {
     return (
       <Screen header={<TopBar />}>
@@ -61,7 +63,6 @@ export default function CustomerMemory() {
   }
 
   const first = firstName(customer.name);
-  const now = Date.now();
   const allEntries = timelineEntries(state, customer.id, now);
   const kinds = KIND_FILTERS.find((k) => k.value === kind)?.kinds;
   const entries = kinds ? allEntries.filter((e) => kinds.includes(e.kind)) : allEntries;

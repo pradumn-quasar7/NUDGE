@@ -6,6 +6,9 @@ import type { Channel, Organization } from '@/data/types';
  * Module-level so every step (separate routes) shares one draft without a provider.
  */
 export type OnboardingDraft = {
+  /** Cloud mode only: asked on the "About you" step before the workspace exists. */
+  ownerName?: string;
+  businessName?: string;
   sells: string;
   handles: string[];
   channels: Channel[];

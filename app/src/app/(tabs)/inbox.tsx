@@ -30,6 +30,7 @@ import { ago, dayDiff, firstName, inr, shortDay, time12 } from '@/lib/format';
 import { SheetModal, useCompletePromise } from '@/features/promises';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/tokens';
+import { useNow } from '@/lib/useNow';
 
 const BUCKETS: { key: InboxBucket; label: string }[] = [
   { key: 'needs_reply', label: 'Needs reply' },
@@ -86,7 +87,7 @@ export default function Inbox() {
   const complete = useCompletePromise();
   const [bucket, setBucket] = useState<InboxBucket>('needs_reply');
   const [reviewing, setReviewing] = useState<InboxItem | null>(null);
-  const now = Date.now();
+  const now = useNow();
   const promises = openCommitments(state);
   const items = state.inbox.filter((i) => i.bucket === bucket).sort((a, b) => b.at - a.at);
   const count = (b: InboxBucket) => (b === 'promises' ? promises.length : state.inbox.filter((i) => i.bucket === b).length);

@@ -7,6 +7,7 @@ import { commitmentRisk, customerCommitments, eventsFor, groupTimeline } from '@
 import type { CustomerEvent, EventKind, ID } from '@/data/types';
 import { inr, shortDay } from '@/lib/format';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useNow } from '@/lib/useNow';
 
 /** Glyph per event kind (board 04 · 10 Memory timeline). */
 export const GLYPH: Record<EventKind, { icon: IconName; tone?: 'ok' | 'warn' | 'acc' }> = {
@@ -113,7 +114,7 @@ function EventSub({ e }: { e: TimelineEntry }) {
 export function Timeline({
   state,
   entries,
-  now = Date.now(),
+  now: nowProp,
   groups = true,
   compact,
   highlightId,
@@ -127,6 +128,8 @@ export function Timeline({
   highlightId?: ID;
   onItemLayout?: (id: ID, y: number) => void;
 }) {
+  const tick = useNow();
+  const now = nowProp ?? tick;
   const { c } = useTheme();
   const grouped = groups ? groupTimeline(entries, now) : [{ title: '', items: entries }];
   const latestInbound = entries.find((e) => e.direction === 'in' && e.body)?.id;

@@ -86,8 +86,8 @@ export function OnboardingFooter({ children }: { children: ReactNode }) {
 }
 
 /** Large ink CTA (design `.btn.p.lg.w`: 56pt, radius 18). */
-export function OnboardingCta({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
-  return <Button label={label} onPress={onPress} disabled={disabled} size="lg" full style={{ height: 56, borderRadius: 18 }} />;
+export function OnboardingCta({ label, onPress, disabled, loading }: { label: string; onPress: () => void; disabled?: boolean; loading?: boolean }) {
+  return <Button label={label} onPress={onPress} disabled={disabled} loading={loading} size="lg" full style={{ height: 56, borderRadius: 18 }} />;
 }
 
 /** Space reserved under scrolling content so the pinned footer never covers it. */

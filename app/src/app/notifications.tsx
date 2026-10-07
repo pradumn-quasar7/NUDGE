@@ -6,11 +6,12 @@ import { useStore } from '@/data/store';
 import type { AppNotification } from '@/data/types';
 import { dayDiff, firstName, shortDay, time } from '@/lib/format';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useNow } from '@/lib/useNow';
 
 /** 21 · Notifications — only what needs you, each with a way to act on it. */
 export default function Notifications() {
   const { state, actions } = useStore();
-  const now = Date.now();
+  const now = useNow();
   const sorted = [...state.notifications].sort((a, b) => b.at - a.at);
   const today = sorted.filter((n) => dayDiff(n.at, now) === 0);
   const earlier = sorted.filter((n) => dayDiff(n.at, now) !== 0);

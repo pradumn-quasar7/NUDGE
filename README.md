@@ -42,20 +42,43 @@ Press `w` for the web preview, or scan the QR code with Expo Go / a development 
 environment variables set, the app runs in **demo mode** on a seeded workspace ("Brightline Fixtures") that is
 stored on-device — every action (complete a promise, confirm an extraction, add a customer) really changes state.
 
+## Modes
+
+- **Demo mode** (default, no env vars): a seeded workspace stored on-device. No account needed.
+- **Cloud mode** (`EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY` in `app/.env`): sign in with a 6-digit
+  email code, create or join a workspace, and every action saves to Supabase (optimistic UI, re-sync on error,
+  Realtime + foreground refresh). See [supabase/README.md](supabase/README.md) to set up a project.
+
+### Run against a local backend (no Docker)
+
+```bash
+brew install postgresql@16 postgrest
+```
+
+```bash
+dev/local-supabase/start.sh && node dev/local-supabase/smoke.mjs
+```
+
+```bash
+node dev/local-supabase/web.mjs
+```
+
+The last command serves the app in cloud mode on http://localhost:8082 against the local API. The local auth stub has
+no email codes, so sign in with the seeded accounts as described in [dev/local-supabase/README.md](dev/local-supabase/README.md).
+
 ## Build order (from the plan) and status
 
-1. ✅ Product UX prototype — every designed screen, light/dark, phone + tablet, on a local store
-2. ✅ Database + authentication + tenant isolation — schema, RLS on every table, audit log, onboarding RPC
-   (`supabase/migrations`, applied and behaviour-tested against Postgres 16; not yet deployed to a Supabase project)
-3. ✅ Customer/contact timeline
+1. ✅ Product UX prototype — every designed screen, light/dark, phone + tablet
+2. ✅ Database + authentication + tenant isolation — schema, RLS on every table, audit log
+3. ✅ App ↔ backend — email-code sign-in, workspace creation and invites, cloud store, Realtime, AI extraction
+   queued automatically for every event captured in the app (verified end to end against local Postgres)
 4. ✅ Event ingestion model — immutable `conversation_events`, idempotent `webhook_events`
-5. 🟡 AI extraction service — `ai-extract` edge function written (Claude, structured output, pending-until-confirmed);
-   the app still uses the on-device stand-in (`src/lib/ai.ts`) until auth + `src/data/remote.ts` are wired in
-6. ✅ Promise Radar · 7. ✅ Follow-up inbox (+ `followup-scheduler` function) · 8. 🟡 Search/copilot (`copilot` function written)
+5. 🟡 AI extraction service — `ai-extract` edge function written and wired; needs a hosted project + `ANTHROPIC_API_KEY`
+6. ✅ Promise Radar · 7. ✅ Follow-up inbox (+ scheduler, every 15 min via pg_cron) · 8. ✅ Search/copilot (server, with on-device fallback)
 9. 🟡 WhatsApp integration — signed, idempotent webhook written; needs a Meta app + number to go live
 10. ⬜ Push notifications · 11. ⬜ Security/audit hardening · 12. ⬜ Beta with 5–10 businesses
 
-**Next phase:** auth screens, switch the store to Supabase when configured, Realtime, trigger `ai-extract` on new events.
+**Next phase:** push notifications, real voice transcription, then a hosted Supabase project for beta.
 
 ## Principles the code enforces
 

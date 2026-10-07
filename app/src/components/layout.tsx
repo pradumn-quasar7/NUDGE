@@ -11,8 +11,7 @@ import {
   useWindowDimensions,
   type ScrollViewProps,
   type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+  type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,6 +22,7 @@ import { Icon } from './Icon';
 import { Glass, CheckCircle } from './primitives';
 import { Tap } from './Pressable';
 import { Txt } from './Text';
+import { useAnimatedValue } from '@/lib/useAnimatedValue';
 
 export const TAB_BAR_SPACE = 140;
 export const TABLET_MIN_WIDTH = 768;
@@ -232,8 +232,8 @@ export function Sheet({
   const { c, shadow } = useTheme();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
-  const y = useRef(new Animated.Value(height)).current;
-  const o = useRef(new Animated.Value(0)).current;
+  const y = useAnimatedValue(height);
+  const o = useAnimatedValue(0);
   const close = useCallback(() => {
     Animated.parallel([
       Animated.timing(y, { toValue: height, duration: 200, easing: Easing.in(Easing.quad), useNativeDriver: Platform.OS !== 'web' }),
@@ -302,7 +302,7 @@ export const useToast = () => useContext(ToastContext);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ToastSpec | null>(null);
-  const o = useRef(new Animated.Value(0)).current;
+  const o = useAnimatedValue(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { c, shadow } = useTheme();
   const insets = useSafeAreaInsets();

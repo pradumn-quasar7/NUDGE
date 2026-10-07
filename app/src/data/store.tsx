@@ -1,6 +1,10 @@
-import { createContext, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState as RNAppState } from 'react-native';
+import { supabase } from '@/lib/supabase';
+import * as remote from './remote';
 import { buildSeed, type SeedData } from './seed';
+import { backendMode, useSession } from './session';
 import type {
   Commitment,
   Customer,
@@ -15,8 +19,9 @@ import type {
 } from './types';
 
 /**
- * Local-first app store. In demo mode it is seeded and persisted to AsyncStorage.
- * The action surface is the contract the Supabase repository implements next (see src/data/remote.ts).
+ * App store. Demo mode: seeded and persisted on-device. Cloud mode (Supabase configured): the signed-in
+ * user's workspace, loaded from the server, kept fresh by Realtime. Actions update the screen immediately
+ * and then save to the server; if a save fails the store re-syncs and surfaces the error.
  */
 
 export type AppState = SeedData & {
@@ -166,26 +171,109 @@ function reducer(s: AppState, a: Action): AppState {
   }
 }
 
+export type SyncState = { status: 'idle' | 'loading' | 'error'; error?: string; loadedAt?: number };
+
 type Store = {
   state: AppState;
   ready: boolean;
+  /** Cloud mode only: whether the signed-in user already has a workspace. */
+  hasWorkspace: boolean;
+  sync: SyncState;
+  reload: () => Promise<void>;
   dispatch: React.Dispatch<Action>;
   actions: ReturnType<typeof makeActions>;
 };
 
-function makeActions(dispatch: React.Dispatch<Action>, get: () => AppState) {
+/** Minimal state for a signed-in user who hasn't created a workspace yet. */
+function emptyCloudState(email = ''): AppState {
+  const seed = buildSeed();
   return {
-    onboard: (org: Partial<Organization>, ownerName?: string) => dispatch({ type: 'onboard', org, ownerName }),
+    ...seed,
+    org: { id: '', name: '', sells: '', handles: [], channels: [], plan: 'free' },
+    me: 'me',
+    members: [{ id: 'me', name: '', email, role: 'owner', status: 'active' }],
+    customers: [],
+    events: [],
+    facts: [],
+    commitments: [],
+    extractions: [],
+    notifications: [],
+    inbox: [],
+    integrations: [],
+    invoices: [],
+    onboarded: false,
+  };
+}
+
+/** Cloud side effects run after the optimistic local update; failures re-sync from the server. */
+type Cloud = {
+  /** Present only in cloud mode once a workspace is loaded. */
+  ctx: () => { orgId: ID; meId: ID } | null;
+  /** `refresh`: re-sync afterwards so rows created optimistically pick up their server ids. */
+  run: (label: string, fn: (ctx: { orgId: ID; meId: ID }) => Promise<unknown>, refresh?: boolean) => Promise<void>;
+  createWorkspace: (input: { name: string; sells: string; handles: string[]; channels: Organization['channels'] }) => Promise<void>;
+};
+
+function makeActions(dispatch: React.Dispatch<Action>, get: () => AppState, cloud: Cloud) {
+  const channelOf = (customerId: ID) => get().customers.find((c) => c.id === customerId)?.preferredChannel ?? 'whatsapp';
+  return {
+    /**
+     * Finish onboarding. Demo: marks the seeded workspace as set up. Cloud: creates the workspace
+     * (the caller becomes its owner) unless it already exists, then saves the answers.
+     */
+    onboard: async (org: Partial<Organization>, ownerName?: string) => {
+      if (backendMode === 'cloud') {
+        const existing = cloud.ctx();
+        if (existing) {
+          dispatch({ type: 'onboard', org, ownerName });
+          await cloud.run('Save your answers', ({ orgId }) =>
+            remote.updateOrganization(orgId, { sells: org.sells, handles: org.handles, channels: org.channels }),
+          );
+        } else {
+          await cloud.createWorkspace({
+            name: org.name?.trim() || 'My business',
+            sells: org.sells ?? '',
+            handles: org.handles ?? [],
+            channels: org.channels ?? [],
+          });
+        }
+        return;
+      }
+      dispatch({ type: 'onboard', org, ownerName });
+    },
     reset: () => dispatch({ type: 'reset' }),
-    completeCommitment: (id: ID) => dispatch({ type: 'completeCommitment', id }),
-    undoComplete: (id: ID) => dispatch({ type: 'undoComplete', id }),
-    snoozeCommitment: (id: ID, until: number) => dispatch({ type: 'snoozeCommitment', id, until }),
-    handOff: (id: ID, memberId: ID) => dispatch({ type: 'handOff', id, memberId }),
-    confirmExtraction: (id: ID, fields: ExtractionField[], dueAt?: number, title?: string) =>
-      dispatch({ type: 'confirmExtraction', id, fields, dueAt, title }),
-    ignoreExtraction: (id: ID) => dispatch({ type: 'ignoreExtraction', id }),
-    markNotificationsRead: () => dispatch({ type: 'markNotificationsRead' }),
-    markNotificationRead: (id: ID) => dispatch({ type: 'markNotificationRead', id }),
+    completeCommitment: (id: ID) => {
+      dispatch({ type: 'completeCommitment', id });
+      void cloud.run('Complete promise', () => remote.completeCommitment(id));
+    },
+    undoComplete: (id: ID) => {
+      dispatch({ type: 'undoComplete', id });
+      void cloud.run('Undo', () => remote.reopenCommitment(id));
+    },
+    snoozeCommitment: (id: ID, until: number) => {
+      dispatch({ type: 'snoozeCommitment', id, until });
+      void cloud.run('Snooze', () => remote.snoozeCommitment(id, until));
+    },
+    handOff: (id: ID, memberId: ID) => {
+      dispatch({ type: 'handOff', id, memberId });
+      void cloud.run('Hand off', () => remote.handOffCommitment(id, memberId));
+    },
+    confirmExtraction: (id: ID, fields: ExtractionField[], dueAt?: number, title?: string) => {
+      dispatch({ type: 'confirmExtraction', id, fields, dueAt, title });
+      void cloud.run('Add to Promise Radar', () => remote.confirmExtraction(id, fields, dueAt, title), true);
+    },
+    ignoreExtraction: (id: ID) => {
+      dispatch({ type: 'ignoreExtraction', id });
+      void cloud.run('Ignore', () => remote.ignoreExtraction(id));
+    },
+    markNotificationsRead: () => {
+      dispatch({ type: 'markNotificationsRead' });
+      void cloud.run('Mark read', ({ orgId }) => remote.markNotificationsRead(orgId));
+    },
+    markNotificationRead: (id: ID) => {
+      dispatch({ type: 'markNotificationRead', id });
+      void cloud.run('Mark read', ({ orgId }) => remote.markNotificationsRead(orgId, [id]));
+    },
     /** Resolve an inbox item; if an outbound action happened, record it as an immutable event on the timeline. */
     resolveInbox: (id: ID, sent?: { title: string; body?: string }) => {
       const item = get().inbox.find((i) => i.id === id);
@@ -197,7 +285,7 @@ function makeActions(dispatch: React.Dispatch<Action>, get: () => AppState) {
             id: uid('e'),
             customerId: item.customerId,
             kind: 'message',
-            channel: get().customers.find((c) => c.id === item.customerId)?.preferredChannel ?? 'whatsapp',
+            channel: channelOf(item.customerId),
             direction: 'out',
             at: Date.now(),
             title: sent.title,
@@ -206,14 +294,49 @@ function makeActions(dispatch: React.Dispatch<Action>, get: () => AppState) {
           },
         });
       }
+      void cloud.run('Save', async ({ orgId, meId }) => {
+        await remote.resolveSuggestion(id);
+        if (item && sent)
+          await remote.addOutboundMessage(orgId, { customerId: item.customerId, channel: channelOf(item.customerId), title: sent.title, body: sent.body, authorId: meId });
+      }, !!sent);
     },
-    updateSettings: (patch: Partial<Settings>) => dispatch({ type: 'updateSettings', patch }),
-    setIntegration: (id: ID, patch: Partial<Integration>) => dispatch({ type: 'setIntegration', id, patch }),
-    inviteMember: (email: string) => dispatch({ type: 'inviteMember', email }),
-    archiveCustomer: (id: ID) => dispatch({ type: 'archiveCustomer', id }),
-    unarchiveCustomer: (id: ID) => dispatch({ type: 'unarchiveCustomer', id }),
-    forgetFact: (id: ID) => dispatch({ type: 'forgetFact', id }),
-    addCustomer: (input: { name: string; company?: string; phone?: string; email?: string }) => {
+    updateSettings: (patch: Partial<Settings>) => {
+      dispatch({ type: 'updateSettings', patch });
+      void cloud.run('Save settings', ({ orgId }) => remote.updateSettings(orgId, patch));
+    },
+    setIntegration: (id: ID, patch: Partial<Integration>) => {
+      if (patch.status === 'connected' && !patch.lastSyncAt) patch = { ...patch, lastSyncAt: Date.now() };
+      dispatch({ type: 'setIntegration', id, patch });
+      if (patch.status) void cloud.run('Update integration', () => remote.setIntegrationStatus(id, patch.status!));
+    },
+    inviteMember: (email: string) => {
+      dispatch({ type: 'inviteMember', email });
+      void cloud.run('Invite', ({ orgId }) => remote.inviteMember(orgId, email), true);
+    },
+    archiveCustomer: (id: ID) => {
+      dispatch({ type: 'archiveCustomer', id });
+      void cloud.run('Remove', () => remote.setCustomerArchived(id, true));
+    },
+    unarchiveCustomer: (id: ID) => {
+      dispatch({ type: 'unarchiveCustomer', id });
+      void cloud.run('Restore', () => remote.setCustomerArchived(id, false));
+    },
+    forgetFact: (id: ID) => {
+      dispatch({ type: 'forgetFact', id });
+      void cloud.run('Forget', () => remote.forgetFact(id));
+    },
+    unforgetFact: (fact: CustomerFact) => {
+      dispatch({ type: 'addFacts', facts: [fact] });
+      void cloud.run('Undo forget', () => remote.unforgetFact(fact.id));
+    },
+    /** Resolves to the saved customer — in cloud mode with its server id, so callers can navigate to it. */
+    addCustomer: async (input: { name: string; company?: string; phone?: string; email?: string }): Promise<Customer> => {
+      const ctx = cloud.ctx();
+      if (ctx) {
+        const saved = await remote.addCustomer(ctx.orgId, input, ctx.meId);
+        dispatch({ type: 'addCustomer', customer: saved });
+        return saved;
+      }
       const now = Date.now();
       const customer: Customer = {
         id: uid('c'),
@@ -244,6 +367,7 @@ function makeActions(dispatch: React.Dispatch<Action>, get: () => AppState) {
         authorId: get().me,
       };
       dispatch({ type: 'addEvent', event });
+      void cloud.run('Save note', ({ orgId, meId }) => remote.addNote(orgId, customerId, body, meId), true);
       return event;
     },
     /** Save a confirmed capture: raw event + optional promise + facts, all linked to the event. */
@@ -300,6 +424,12 @@ function makeActions(dispatch: React.Dispatch<Action>, get: () => AppState) {
           })),
         });
       }
+      // Cloud: one transaction — the note is the immutable source; the promise and facts point back to it.
+      void cloud.run(
+        'Save capture',
+        () => remote.saveCapture({ customerId: input.customerId, body: input.transcript, kind: input.kind, promise: input.promise, facts: input.facts }),
+        true,
+      );
       return event;
     },
   };
@@ -308,12 +438,24 @@ function makeActions(dispatch: React.Dispatch<Action>, get: () => AppState) {
 const StoreContext = createContext<Store | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, undefined, () => ({ ...buildSeed(), onboarded: false }));
-  const [ready, setReady] = useState(false);
+  const session = useSession();
+  const cloudMode = backendMode === 'cloud';
+  const [state, dispatch] = useReducer(reducer, undefined, () =>
+    cloudMode ? emptyCloudState() : { ...buildSeed(), onboarded: false },
+  );
+  const [localReady, setLocalReady] = useState(cloudMode);
+  const [sync, setSync] = useState<SyncState>({ status: 'idle' });
+  const [hasWorkspace, setHasWorkspace] = useState(false);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  // Latest committed state for action handlers (read in events, never during render).
   const stateRef = useRef(state);
-  stateRef.current = state;
+  useLayoutEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
+  /* ── Demo mode: persisted on-device ── */
   useEffect(() => {
+    if (cloudMode) return;
     AsyncStorage.getItem(STORAGE_KEY)
       .then((raw) => {
         if (raw) {
@@ -329,18 +471,147 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => {})
-      .finally(() => setReady(true));
-  }, []);
+      .finally(() => setLocalReady(true));
+  }, [cloudMode]);
 
   useEffect(() => {
-    if (!ready) return;
+    if (cloudMode || !localReady) return;
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, savedAt: Date.now() })).catch(() => {});
-  }, [state, ready]);
+  }, [state, localReady, cloudMode]);
 
-  const actions = useMemo(() => makeActions(dispatch, () => stateRef.current), []);
-  const value = useMemo(() => ({ state, ready, dispatch, actions }), [state, ready, actions]);
+  /* ── Cloud mode: the signed-in user's workspace from Supabase ── */
+  const loading = useRef<Promise<void> | null>(null);
+  const reload = useCallback(async () => {
+    if (!cloudMode) return;
+    if (loading.current) return loading.current;
+    const run = (async () => {
+      setSync((s) => ({ ...s, status: 'loading' }));
+      try {
+        await remote.acceptInvites().catch(() => 0); // join any workspace this email was invited to
+        const ws = await remote.getWorkspace();
+        if (!ws) {
+          setHasWorkspace(false);
+          dispatch({ type: 'hydrate', state: emptyCloudState(session.email ?? '') });
+        } else {
+          const data = await remote.loadWorkspaceData(ws.org.id);
+          setHasWorkspace(true);
+          dispatch({
+            type: 'hydrate',
+            state: {
+              ...emptyCloudState(ws.me.email),
+              ...data,
+              org: ws.org,
+              settings: ws.settings,
+              members: ws.members,
+              me: ws.me.id,
+              onboarded: true,
+              lastCompleted: stateRef.current.lastCompleted,
+            },
+          });
+        }
+        setSync({ status: 'idle', loadedAt: Date.now() });
+      } catch (e) {
+        setSync({ status: 'error', error: e instanceof Error ? e.message : String(e), loadedAt: Date.now() });
+      } finally {
+        loading.current = null;
+      }
+    })();
+    loading.current = run;
+    return run;
+  }, [cloudMode, session.email]);
+
+  // Load on sign-in, clear on sign-out.
+  useEffect(() => {
+    if (!cloudMode || !session.ready) return;
+    if (!session.userId) {
+      // Signed out elsewhere (token expiry, another tab): drop the workspace from memory.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setHasWorkspace(false);
+      setLoadedFor(null);
+      dispatch({ type: 'hydrate', state: emptyCloudState() });
+      return;
+    }
+    reload().finally(() => setLoadedFor(session.userId));
+  }, [cloudMode, session.ready, session.userId, reload]);
+
+  // Realtime: any change in this workspace (a teammate, the WhatsApp webhook, the AI pipeline) re-syncs.
+  const orgId = hasWorkspace ? state.org.id : '';
+  useEffect(() => {
+    if (!supabase || !orgId) return;
+    const db = supabase;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const soon = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => void reload(), 600);
+    };
+    const channel = db.channel(`org:${orgId}`);
+    for (const table of REALTIME_TABLES) {
+      channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `org_id=eq.${orgId}` }, soon);
+    }
+    channel.subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      void db.removeChannel(channel);
+    };
+  }, [orgId, reload]);
+
+  // Back in the foreground: catch up on anything that happened while away (Realtime may have dropped).
+  useEffect(() => {
+    if (!orgId) return;
+    const sub = RNAppState.addEventListener('change', (next) => {
+      if (next === 'active') void reload();
+    });
+    return () => sub.remove();
+  }, [orgId, reload]);
+
+  const cloud = useMemo<Cloud>(() => {
+    const ctx = () => {
+      const s = stateRef.current;
+      return cloudMode && s.org.id && s.me ? { orgId: s.org.id, meId: s.me } : null;
+    };
+    return {
+      ctx,
+      async run(label, fn, refresh) {
+        const c = ctx();
+        if (!c) return;
+        try {
+          await fn(c);
+          if (refresh) await reload();
+        } catch (e) {
+          setSync({ status: 'error', error: `${label} didn’t save. ${e instanceof Error ? e.message : ''}`.trim() });
+          await reload(); // put the screen back in line with what the server has
+        }
+      },
+      async createWorkspace(input) {
+        const id = await remote.createOrganization(input.name, input.sells);
+        await remote.updateOrganization(id, { handles: input.handles, channels: input.channels });
+        await reload();
+      },
+    };
+  }, [cloudMode, reload]);
+
+  // The getter is only called from event handlers, after render.
+  // eslint-disable-next-line react-hooks/refs
+  const actions = useMemo(() => makeActions(dispatch, () => stateRef.current, cloud), [cloud]);
+  const ready = cloudMode ? session.ready && (!session.userId || loadedFor === session.userId) : localReady;
+  const value = useMemo(
+    () => ({ state, ready, hasWorkspace, sync, reload, dispatch, actions }),
+    [state, ready, hasWorkspace, sync, reload, actions],
+  );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
+
+const REALTIME_TABLES = [
+  'customers',
+  'conversation_events',
+  'customer_facts',
+  'commitments',
+  'extractions',
+  'notifications',
+  'followup_suggestions',
+  'integration_accounts',
+  'organization_members',
+];
 
 export function useStore() {
   const s = useContext(StoreContext);
@@ -355,7 +626,7 @@ export function useCustomer(id: ID | undefined) {
 
 export function useMe() {
   const { state } = useStore();
-  return state.members.find((m) => m.id === state.me)!;
+  return state.members.find((m) => m.id === state.me) ?? state.members[0];
 }
 
 export type { Extraction };

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Easing, Platform, View } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -14,7 +14,7 @@ const BARS: [number, number][] = [
  */
 export function Waveform({ active = true, height = 96, bars = BARS }: { active?: boolean; height?: number; bars?: [number, number][] }) {
   const { c } = useTheme();
-  const values = useRef(bars.map(() => new Animated.Value(0.4))).current;
+  const values = useState(() => bars.map(() => new Animated.Value(0.4)))[0];
 
   useEffect(() => {
     const native = Platform.OS !== 'web';
@@ -68,7 +68,7 @@ export function Waveform({ active = true, height = 96, bars = BARS }: { active?:
 /** Three indigo dots pulsing in turn — "Understanding…". */
 export function ThinkingDots({ size = 8 }: { size?: number }) {
   const { c } = useTheme();
-  const values = useRef([0, 1, 2].map(() => new Animated.Value(0.3))).current;
+  const values = useState(() => [0, 1, 2].map(() => new Animated.Value(0.3)))[0];
   useEffect(() => {
     const native = Platform.OS !== 'web';
     const loop = Animated.loop(
