@@ -86,7 +86,7 @@ export default function SignIn() {
       footer={
         <OnboardingFooter>
           {step === 'email' ? (
-            <OnboardingCta label="Send code" onPress={() => void send()} disabled={!validEmail} loading={busy} />
+            <OnboardingCta label="Email me a sign-in link" onPress={() => void send()} disabled={!validEmail} loading={busy} />
           ) : (
             <OnboardingCta label="Continue" onPress={() => void verify()} disabled={code.length !== 6} loading={busy} />
           )}
@@ -99,7 +99,7 @@ export default function SignIn() {
             <Txt variant="h1" accessibilityRole="header">
               Sign in to Nudge
             </Txt>
-            <Txt variant="body">We’ll email you a 6-digit code. No password to remember.</Txt>
+            <Txt variant="body">We’ll email you a sign-in link. No password to remember.</Txt>
           </View>
           <View style={{ gap: 8 }}>
             <Txt variant="meta">Work email</Txt>
@@ -136,7 +136,7 @@ export default function SignIn() {
               Check your email
             </Txt>
             <Txt variant="body">
-              Enter the 6-digit code we sent to <Txt variant="body" tone="t1" weight="medium">{email.trim().toLowerCase()}</Txt>.
+              Open the email we sent to <Txt variant="body" tone="t1" weight="medium">{email.trim().toLowerCase()}</Txt> on this phone and tap the sign-in link. If the email shows a 6-digit code, enter it here instead.
             </Txt>
           </View>
           <View style={{ gap: 8 }}>
@@ -185,7 +185,7 @@ export default function SignIn() {
             <Txt variant="meta">Didn’t get it?</Txt>
             <Button
               variant="ghost"
-              label="Send a new code"
+              label="Send a new link"
               icon={null}
               disabled={busy || (resentAt !== null && now - resentAt < 30_000)}
               onPress={() => void send()}

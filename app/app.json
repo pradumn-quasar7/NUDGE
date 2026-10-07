@@ -14,11 +14,11 @@
       "adaptiveIcon": {
         "backgroundColor": "#121217",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundImage": "./assets/android-icon-background.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "app.nudge.mobile"
+      "package": "app.nudge.mobile",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -34,17 +34,25 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#F5F4F0",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
           "dark": {
-            "backgroundColor": "#0B0B0E"
-          },
-          "image": "./assets/icon.png",
-          "imageWidth": 96
+            "backgroundColor": "#0B0B0E",
+            "image": "./assets/splash-icon-dark.png"
+          }
         }
       ]
     ],
     "scheme": "nudge",
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6aeb9094-5dbb-4332-9a68-a03ecf52b1de"
+      }
+    },
+    "owner": "pradumn_quasar"
   }
 }

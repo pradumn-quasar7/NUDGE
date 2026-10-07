@@ -33,16 +33,28 @@ file_size_limit = "50MiB"
 enabled = true
 # Expo web dev server; native deep links use the app scheme from app.json.
 site_url = "http://localhost:8081"
-additional_redirect_urls = ["nudge://", "http://localhost:8081"]
+additional_redirect_urls = ["nudge://**", "exp+nudge://**", "http://localhost:8081/**", "http://localhost:8082/**"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 enable_signup = true
 
 [auth.email]
 enable_signup = true
-# Local only. Production MUST confirm emails: invited memberships are linked to
-# accounts by confirmed email address (see 20261007000003_onboarding.sql).
-enable_confirmations = false
+# Must stay on in production: invited memberships are linked to accounts by confirmed
+# email address (see 20261007000003_onboarding.sql). The 6-digit code confirms the email.
+enable_confirmations = true
+otp_length = 6
+otp_expiry = 3600
+
+# The app accepts both the emailed sign-in link (deep link → /auth-callback) and the code.
+# Custom templates need a custom SMTP provider on Supabase's free plan. Once one is set up,
+# uncomment these so emails also show the code (templates/sign-in-code.html uses {{ .Token }}):
+# [auth.email.template.confirmation]
+# subject = "Your Nudge sign-in code"
+# content_path = "./supabase/templates/sign-in-code.html"
+# [auth.email.template.magic_link]
+# subject = "Your Nudge sign-in code"
+# content_path = "./supabase/templates/sign-in-code.html"
 
 [edge_runtime]
 enabled = true

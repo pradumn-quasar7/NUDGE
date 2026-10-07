@@ -78,6 +78,8 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: Platform.OS === 'web',
+        // Email links come back as nudge://auth-callback?code=… and are exchanged on this device.
+        flowType: 'pkce',
       },
     })
   : null;
